@@ -1,26 +1,30 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@theme {
+  --color-primary: #0f172a; /* Slate 900 */
+  --color-secondary: #2563eb; /* Blue 600 */
+  --color-accent: #f59e0b; /* Amber 500 */
+  --color-background: #f9fafb; /* Gray 50 */
+  --color-surface: #ffffff; /* White */
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  @apply bg-background text-gray-900;
+}
+
+/* Custom Utilities */
+.card {
+  @apply bg-surface rounded-xl shadow-sm border border-gray-100 p-6;
+}
+
+.btn-primary {
+  @apply bg-primary text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors font-medium;
+}
+
+.btn-secondary {
+  @apply bg-white text-primary border border-gray-200 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors font-medium;
+}
+
+.input-field {
+  @apply w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all;
 }

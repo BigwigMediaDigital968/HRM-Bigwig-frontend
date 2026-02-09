@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 
 // Types
-export type UserRole = "admin" | "employee";
+export type UserRole = "ADMIN" | "EMPLOYEE";
 
 export interface User {
   id: string;
@@ -27,7 +27,7 @@ export interface EmployeeProfile {
 
 interface AuthContextType {
   user: User | null;
-  login: (id: string, pass: string, role: UserRole) => boolean;
+  login: (id: string, pass: string, role: UserRole) => Promise<boolean>;
   logout: () => void;
   addEmployee: (emp: User) => void;
   updateEmployeeProfile: (id: string, profile: EmployeeProfile) => void;
@@ -38,17 +38,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Mock Initial Data
 const INITIAL_ADMIN: User = {
-  id: "admin",
+  id: "ADMIN001",
   name: "Super Admin",
-  role: "admin",
-  password: "admin",
+  role: "ADMIN",
+  password: "bigwig@2026",
 };
 
 const INITIAL_EMPLOYEES: User[] = [
   {
     id: "EMP001",
     name: "John Doe",
-    role: "employee",
+    role: "EMPLOYEE",
     password: "password",
   },
 ];
@@ -75,28 +75,80 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem("hrm_employees", JSON.stringify(employees));
   }, [employees]);
 
-  const login = (id: string, pass: string, role: UserRole) => {
-    if (role === "admin") {
-      if (id === INITIAL_ADMIN.id && pass === INITIAL_ADMIN.password) {
-        const adminUser = { ...INITIAL_ADMIN };
-        setUser(adminUser);
-        localStorage.setItem("hrm_user", JSON.stringify(adminUser));
-        toast.success("Welcome Admin!");
-        router.push("/admin/dashboard");
+  const login = async (id: string, pass: string, role: UserRole) => {
+    try {
+      // Attempt to fetch from backend API
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ employeeId: id, password: pass }),
+        },
+      );
+
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const data = await res.json();
+
+        if (!data.success) {
+          throw new Error(data.message || "Login failed");
+        }
+
+        const { token, employee } = data.data;
+
+        // Map backend employee to frontend User
+        const userData: User = {
+          id: employee.employeeId,
+          name: employee.name || employee.email.split("@")[0], // Fallback for name
+          email: employee.email,
+          role: employee.role as UserRole,
+          profile: employee.profile, // Assuming backend might send profile, or we leave undefined
+        };
+
+        setUser(userData);
+        localStorage.setItem("hrm_user", JSON.stringify(userData));
+        // Ideally store token in cookie/localStorage as well
+        localStorage.setItem("hrm_token", token);
+
+        if (userData.role === "ADMIN") {
+          toast.success("Welcome Admin!");
+          router.push("/admin/dashboard");
+        } else {
+          toast.success(`Welcome ${userData.name}!`);
+          router.push("/employee/dashboard");
+        }
         return true;
+      } else {
+        // Response is not JSON (likely 404 HTML if backend missing)
+        throw new Error("Backend API not available");
       }
-    } else {
-      const emp = employees.find((e) => e.id === id && e.password === pass);
-      if (emp) {
-        setUser(emp);
-        localStorage.setItem("hrm_user", JSON.stringify(emp));
-        toast.success(`Welcome ${emp.name}!`);
-        router.push("/employee/dashboard");
-        return true;
+    } catch (error: any) {
+      console.warn("Backend login failed, falling back to mock logic:", error);
+
+      // Fallback Mock Logic
+      if (role === "ADMIN") {
+        if (id === INITIAL_ADMIN.id && pass === INITIAL_ADMIN.password) {
+          const adminUser = { ...INITIAL_ADMIN };
+          setUser(adminUser);
+          localStorage.setItem("hrm_user", JSON.stringify(adminUser));
+          toast.success("Welcome Admin!");
+          router.push("/admin/dashboard");
+          return true;
+        }
+      } else {
+        const emp = employees.find((e) => e.id === id && e.password === pass);
+        if (emp) {
+          setUser(emp);
+          localStorage.setItem("hrm_user", JSON.stringify(emp));
+          toast.success(`Welcome ${emp.name}!`);
+          router.push("/employee/dashboard");
+          return true;
+        }
       }
+      toast.error(error.message || "Invalid credentials");
+      return false;
     }
-    toast.error("Invalid credentials");
-    return false;
   };
 
   const logout = () => {

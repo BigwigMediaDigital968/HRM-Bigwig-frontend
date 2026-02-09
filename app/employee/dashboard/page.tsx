@@ -9,7 +9,7 @@ export default function EmployeeDashboard() {
   const { user, logout } = useAuth();
   const router = useRouter();
 
-  if (!user || user.role !== "employee") {
+  if (!user || user.role !== "EMPLOYEE") {
     if (typeof window !== "undefined") router.push("/employee/login");
     return null;
   }
@@ -25,7 +25,8 @@ export default function EmployeeDashboard() {
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-gray-600 text-sm hidden sm:block">
-              Welcome, <span className="font-semibold text-gray-900">{user.name}</span>
+              Welcome,{" "}
+              <span className="font-semibold text-gray-900">{user.name}</span>
             </span>
             <button
               onClick={logout}
@@ -41,8 +42,12 @@ export default function EmployeeDashboard() {
       {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-gray-900">What would you like to do?</h2>
-          <p className="text-gray-500 mt-2">Manage your profile and documents easily.</p>
+          <h2 className="text-3xl font-bold text-gray-900">
+            What would you like to do?
+          </h2>
+          <p className="text-gray-500 mt-2">
+            Manage your profile and documents easily.
+          </p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
@@ -54,11 +59,16 @@ export default function EmployeeDashboard() {
             <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <FileText size={32} />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900">Complete Details</h3>
+            <h3 className="text-xl font-semibold text-gray-900">
+              Complete Details
+            </h3>
             <p className="text-gray-500 mt-2">
-              Update your personal information and upload mandatory documents like Aadhaar and PAN.
+              Update your personal information and upload mandatory documents
+              like Aadhaar and PAN.
             </p>
-            <span className="mt-6 text-blue-600 font-medium group-hover:underline">Start Now &rarr;</span>
+            <span className="mt-6 text-blue-600 font-medium group-hover:underline">
+              Start Now &rarr;
+            </span>
           </Link>
 
           {/* View Profile Card */}
@@ -69,11 +79,16 @@ export default function EmployeeDashboard() {
             <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <User size={32} />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900">View Profile</h3>
+            <h3 className="text-xl font-semibold text-gray-900">
+              View Profile
+            </h3>
             <p className="text-gray-500 mt-2">
-              View your submitted details, document status, and employee information.
+              View your submitted details, document status, and employee
+              information.
             </p>
-            <span className="mt-6 text-green-600 font-medium group-hover:underline">View Profile &rarr;</span>
+            <span className="mt-6 text-green-600 font-medium group-hover:underline">
+              View Profile &rarr;
+            </span>
           </Link>
         </div>
       </main>

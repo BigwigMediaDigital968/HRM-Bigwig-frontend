@@ -1,4 +1,5 @@
 "use client";
+//hi
 
 import { useState } from "react";
 import { useAuth, UserRole } from "@/app/context/AuthContext";
@@ -12,9 +13,9 @@ export default function AdminDashboard() {
   const [newEmpId, setNewEmpId] = useState("");
   const [newEmpName, setNewEmpName] = useState("");
   const [newEmpPass, setNewEmpPass] = useState("");
-  const [newEmpRole, setNewEmpRole] = useState<UserRole>("employee");
+  const [newEmpRole, setNewEmpRole] = useState<UserRole>("EMPLOYEE");
 
-  if (!user || user.role !== "admin") {
+  if (!user || user.role !== "ADMIN") {
     // Basic route protection
     if (typeof window !== "undefined") router.push("/admin/login");
     return null;
@@ -32,7 +33,7 @@ export default function AdminDashboard() {
     setNewEmpId("");
     setNewEmpName("");
     setNewEmpPass("");
-    setNewEmpRole("employee");
+    setNewEmpRole("EMPLOYEE");
   };
 
   return (
@@ -44,7 +45,10 @@ export default function AdminDashboard() {
           <p className="text-slate-400 text-sm">Admin Panel</p>
         </div>
         <nav className="p-4 space-y-2">
-          <a href="#" className="flex items-center space-x-3 px-4 py-3 bg-slate-800 rounded-lg text-white">
+          <a
+            href="#"
+            className="flex items-center space-x-3 px-4 py-3 bg-slate-800 rounded-lg text-white"
+          >
             <LayoutDashboard size={20} />
             <span>Dashboard</span>
           </a>
@@ -89,7 +93,9 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Total Employees</p>
-                <p className="text-2xl font-bold">{employees.filter(e => e.role === 'employee').length}</p>
+                <p className="text-2xl font-bold">
+                  {employees.filter((e) => e.role === "EMPLOYEE").length}
+                </p>
               </div>
             </div>
             {/* Add more stats here if needed */}
@@ -99,12 +105,19 @@ export default function AdminDashboard() {
           <div className="card">
             <div className="flex items-center space-x-2 mb-6 border-b border-gray-100 pb-4">
               <PlusCircle className="text-blue-600" />
-              <h3 className="text-lg font-semibold text-gray-900">Add New Employee</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Add New Employee
+              </h3>
             </div>
-            
-            <form onSubmit={handleAddEmployee} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <form
+              onSubmit={handleAddEmployee}
+              className="grid grid-cols-1 md:grid-cols-2 gap-6"
+            >
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Employee ID</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Employee ID
+                </label>
                 <input
                   type="text"
                   value={newEmpId}
@@ -115,7 +128,9 @@ export default function AdminDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Employee Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Employee Name
+                </label>
                 <input
                   type="text"
                   value={newEmpName}
@@ -126,7 +141,9 @@ export default function AdminDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Password
+                </label>
                 <input
                   type="password"
                   value={newEmpPass}
@@ -137,14 +154,16 @@ export default function AdminDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Role
+                </label>
                 <select
                   value={newEmpRole}
                   onChange={(e) => setNewEmpRole(e.target.value as UserRole)}
                   className="input-field bg-white"
                 >
                   <option value="employee">Employee</option>
-                  <option value="admin">Admin</option>
+                  <option value="ADMIN">Admin</option>
                 </select>
               </div>
               <div className="md:col-span-2 flex justify-end">
@@ -157,35 +176,50 @@ export default function AdminDashboard() {
 
           {/* Recent Employees List */}
           <div className="card">
-             <h3 className="text-lg font-semibold text-gray-900 mb-4">Employee Directory</h3>
-             <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="py-3 px-4 text-sm font-medium text-gray-500">ID</th>
-                      <th className="py-3 px-4 text-sm font-medium text-gray-500">Name</th>
-                      <th className="py-3 px-4 text-sm font-medium text-gray-500">Role</th>
-                      <th className="py-3 px-4 text-sm font-medium text-gray-500">Status</th>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Employee Directory
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="py-3 px-4 text-sm font-medium text-gray-500">
+                      ID
+                    </th>
+                    <th className="py-3 px-4 text-sm font-medium text-gray-500">
+                      Name
+                    </th>
+                    <th className="py-3 px-4 text-sm font-medium text-gray-500">
+                      Role
+                    </th>
+                    <th className="py-3 px-4 text-sm font-medium text-gray-500">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {employees.map((emp) => (
+                    <tr
+                      key={emp.id}
+                      className="border-b border-gray-100 hover:bg-gray-50"
+                    >
+                      <td className="py-3 px-4 text-gray-900">{emp.id}</td>
+                      <td className="py-3 px-4 text-gray-900">{emp.name}</td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${emp.role === "ADMIN" ? "bg-purple-100 text-purple-700" : "bg-green-100 text-green-700"}`}
+                        >
+                          {emp.role.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-gray-400 text-sm">Active</span>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {employees.map((emp) => (
-                      <tr key={emp.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4 text-gray-900">{emp.id}</td>
-                        <td className="py-3 px-4 text-gray-900">{emp.name}</td>
-                        <td className="py-3 px-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${emp.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
-                            {emp.role.toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="text-gray-400 text-sm">Active</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-             </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </main>

@@ -8,12 +8,15 @@ import { ShieldCheck } from "lucide-react";
 export default function AdminLogin() {
   const [id, setId] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    login(id, password, "admin");
+    setIsLoading(true);
+    await login(id, password, "ADMIN");
+    setIsLoading(false);
   };
 
   return (
@@ -56,8 +59,12 @@ export default function AdminLogin() {
             />
           </div>
 
-          <button type="submit" className="w-full btn-primary py-3">
-            Login as Admin
+          <button
+            type="submit"
+            className="w-full btn-primary py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isLoading}
+          >
+            {isLoading ? "Logging in..." : "Login as Admin"}
           </button>
         </form>
 

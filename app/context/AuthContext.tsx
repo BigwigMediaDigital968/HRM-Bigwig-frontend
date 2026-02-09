@@ -33,6 +33,7 @@ interface AuthContextType {
   updateEmployeeProfile: (id: string, profile: EmployeeProfile) => void;
   employees: User[]; // Mock database of employees
   token: string | null;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,6 +58,7 @@ const INITIAL_EMPLOYEES: User[] = [
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [employees, setEmployees] = useState<User[]>(INITIAL_EMPLOYEES);
   const router = useRouter();
 
@@ -72,6 +74,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
     const storedToken = localStorage.getItem("hrm_token");
     if (storedToken) setToken(storedToken);
+
+    setLoading(false);
   }, []);
 
   // Save employees to local storage whenever they change
@@ -195,6 +199,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       value={{
         user,
         token,
+        loading,
         login,
         logout,
         addEmployee,

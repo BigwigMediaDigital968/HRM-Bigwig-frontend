@@ -1,5 +1,4 @@
 "use client";
-//hi
 
 import { useState } from "react";
 import { useAuth, UserRole } from "@/app/context/AuthContext";
@@ -7,12 +6,14 @@ import { useRouter } from "next/navigation";
 import { LogOut, PlusCircle, Users, LayoutDashboard } from "lucide-react";
 
 export default function AdminDashboard() {
-  const { user, logout, addEmployee, employees } = useAuth();
+  const { user, logout, addEmployee, employees, token } = useAuth();
   const router = useRouter();
 
-  const [newEmpId, setNewEmpId] = useState("");
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [createdEmployee, setCreatedEmployee] = useState<any>(null);
+
   const [newEmpName, setNewEmpName] = useState("");
-  const [newEmpPass, setNewEmpPass] = useState("");
   const [newEmpRole, setNewEmpRole] = useState<UserRole>("EMPLOYEE");
 
   if (!user || user.role !== "ADMIN") {
@@ -21,19 +22,42 @@ export default function AdminDashboard() {
     return null;
   }
 
-  const handleAddEmployee = (e: React.FormEvent) => {
+  const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
-    addEmployee({
-      id: newEmpId,
-      name: newEmpName,
-      password: newEmpPass,
-      role: newEmpRole,
-    });
-    // Reset form
-    setNewEmpId("");
-    setNewEmpName("");
-    setNewEmpPass("");
-    setNewEmpRole("EMPLOYEE");
+    setLoading(true);
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/create-employee`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`, // IMPORTANT
+          },
+          body: JSON.stringify({
+            email,
+            role: newEmpRole,
+          }),
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to create employee");
+      }
+
+      setCreatedEmployee(data.data);
+
+      // Reset form
+      setEmail("");
+      setNewEmpRole("EMPLOYEE");
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -116,43 +140,18 @@ export default function AdminDashboard() {
             >
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Employee ID
+                  Employee Email
                 </label>
                 <input
-                  type="text"
-                  value={newEmpId}
-                  onChange={(e) => setNewEmpId(e.target.value)}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="input-field"
-                  placeholder="e.g. EMP002"
+                  placeholder="employee@company.com"
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Employee Name
-                </label>
-                <input
-                  type="text"
-                  value={newEmpName}
-                  onChange={(e) => setNewEmpName(e.target.value)}
-                  className="input-field"
-                  placeholder="Full Name"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={newEmpPass}
-                  onChange={(e) => setNewEmpPass(e.target.value)}
-                  className="input-field"
-                  placeholder="Set Password"
-                  required
-                />
-              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Role
@@ -162,17 +161,42 @@ export default function AdminDashboard() {
                   onChange={(e) => setNewEmpRole(e.target.value as UserRole)}
                   className="input-field bg-white"
                 >
-                  <option value="employee">Employee</option>
+                  <option value="EMPLOYEE">Employee</option>
                   <option value="ADMIN">Admin</option>
                 </select>
               </div>
+
               <div className="md:col-span-2 flex justify-end">
-                <button type="submit" className="btn-primary">
-                  Create Account
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary"
+                >
+                  {loading ? "Creating..." : "Create Account"}
                 </button>
               </div>
             </form>
           </div>
+
+          {createdEmployee && (
+            <div className="mt-6 bg-green-50 border border-green-200 p-4 rounded-lg">
+              <h4 className="font-semibold text-green-700 mb-2">
+                Employee Created Successfully
+              </h4>
+              <p>
+                <strong>Employee ID:</strong> {createdEmployee.employeeId}
+              </p>
+              <p>
+                <strong>Email:</strong> {createdEmployee.email}
+              </p>
+              <p className="text-red-600 font-semibold">
+                Temporary Password: {createdEmployee.temporaryPassword}
+              </p>
+              <p className="text-sm text-gray-600 mt-2">
+                Ask employee to change password on first login.
+              </p>
+            </div>
+          )}
 
           {/* Recent Employees List */}
           <div className="card">

@@ -32,6 +32,7 @@ interface AuthContextType {
   addEmployee: (emp: User) => void;
   updateEmployeeProfile: (id: string, profile: EmployeeProfile) => void;
   employees: User[]; // Mock database of employees
+  token: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,6 +56,7 @@ const INITIAL_EMPLOYEES: User[] = [
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [employees, setEmployees] = useState<User[]>(INITIAL_EMPLOYEES);
   const router = useRouter();
 
@@ -68,6 +70,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (storedEmps) {
       setEmployees(JSON.parse(storedEmps));
     }
+    const storedToken = localStorage.getItem("hrm_token");
+    if (storedToken) setToken(storedToken);
   }, []);
 
   // Save employees to local storage whenever they change
@@ -109,6 +113,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(userData);
         localStorage.setItem("hrm_user", JSON.stringify(userData));
         // Ideally store token in cookie/localStorage as well
+
+        setToken(token);
         localStorage.setItem("hrm_token", token);
 
         if (userData.role === "ADMIN") {
@@ -153,7 +159,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = () => {
     setUser(null);
+    setToken(null);
+
     localStorage.removeItem("hrm_user");
+    localStorage.removeItem("hrm_token");
+
     toast.info("Logged out successfully");
     router.push("/");
   };
@@ -184,6 +194,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     <AuthContext.Provider
       value={{
         user,
+        token,
         login,
         logout,
         addEmployee,

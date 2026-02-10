@@ -32,7 +32,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           {children}
-          <ToastContainer position="top-right" autoClose={3000} />
+          <ToastContainer position="bottom-center" autoClose={3000} />
         </AuthProvider>
       </body>
     </html>

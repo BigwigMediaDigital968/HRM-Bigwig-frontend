@@ -17,6 +17,8 @@ export default function EmployeeProfilePage() {
 
   const { profile } = user;
 
+  console.log(profile);
+
   if (!profile) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 space-y-4">
@@ -57,7 +59,7 @@ export default function EmployeeProfilePage() {
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           {/* Header / Cover */}
-          <div className="h-32 bg-gradient-to-r from-slate-800 to-blue-900"></div>
+          <div className="h-32 bg-linear-to-r from-slate-800 to-blue-900"></div>
 
           <div className="px-8 pb-8">
             <div className="relative flex justify-between items-end -mt-12 mb-8">
@@ -139,6 +141,38 @@ export default function EmployeeProfilePage() {
                   Uploaded Documents
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* Photo */}
+                  <div className="border border-gray-200 rounded-xl overflow-hidden">
+                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                      <span className="font-medium text-gray-700">
+                        Your Photo
+                      </span>
+                      {profile.aadhaar ? (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                          Uploaded
+                        </span>
+                      ) : (
+                        <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                          Missing
+                        </span>
+                      )}
+                    </div>
+                    <div className="aspect-video relative bg-gray-100 flex items-center justify-center">
+                      {profile.photo ? (
+                        <Image
+                          src={profile.photo.url}
+                          alt="Aadhaar"
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <span className="text-gray-400 text-sm">
+                          No preview available
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Aadhaar */}
                   <div className="border border-gray-200 rounded-xl overflow-hidden">
                     <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
@@ -158,7 +192,7 @@ export default function EmployeeProfilePage() {
                     <div className="aspect-video relative bg-gray-100 flex items-center justify-center">
                       {profile.aadhaar ? (
                         <Image
-                          src={profile.aadhaar}
+                          src={profile.aadhaar.url}
                           alt="Aadhaar"
                           fill
                           className="object-cover"
@@ -190,7 +224,7 @@ export default function EmployeeProfilePage() {
                     <div className="aspect-video relative bg-gray-100 flex items-center justify-center">
                       {profile.pan ? (
                         <Image
-                          src={profile.pan}
+                          src={profile.pan.url}
                           alt="PAN"
                           fill
                           className="object-cover"

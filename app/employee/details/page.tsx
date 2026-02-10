@@ -47,17 +47,45 @@ export default function EmployeeDetails() {
   // ---------------------------
   // Prefill data
   // ---------------------------
+  // useEffect(() => {
+  //   if (!user || user.role !== "EMPLOYEE") {
+  //     router.push("/employee/login");
+  //     return;
+  //   }
+
+  //   setFormData({
+  //     name: user.name || "",
+  //     email: user.email || "",
+  //     contact: "",
+  //   });
+  // }, [user, router]);
+
   useEffect(() => {
     if (!user || user.role !== "EMPLOYEE") {
       router.push("/employee/login");
       return;
     }
 
-    setFormData({
-      name: user.name || "",
-      email: user.email || "",
-      contact: "",
-    });
+    if (user.profile) {
+      setFormData({
+        name: user.profile.name || user.name || "",
+        email: user.profile.email || user.email || "",
+        contact: user.profile.phone || "",
+      });
+
+      // 🔹 Existing previews from backend
+      setPreviews({
+        photo: user.profile.photo?.url,
+        aadhaar: user.profile.aadhaar?.url,
+        pan: user.profile.pan?.url,
+      });
+    } else {
+      setFormData({
+        name: user.name || "",
+        email: user.email || "",
+        contact: "",
+      });
+    }
   }, [user, router]);
 
   // ---------------------------
@@ -150,7 +178,7 @@ export default function EmployeeDetails() {
         : null,
     });
 
-    // 🔴 FRONTEND GUARD
+    // FRONTEND GUARD
     if (!files.aadhaar || !files.pan) {
       setError("Please upload Aadhaar and PAN documents");
       return;
@@ -274,10 +302,10 @@ export default function EmployeeDetails() {
 
             {/* Documents */}
             <div className="grid md:grid-cols-2 gap-8">
-              {(["aadhaar", "pan"] as const).map((field) => (
+              {(["aadhaar", "photo", "pan"] as const).map((field) => (
                 <div key={field}>
                   <label className="text-sm font-medium capitalize">
-                    {field} Card
+                    {field} Image
                   </label>
 
                   <div className="relative border-2 border-dashed rounded-lg p-4 mt-2 text-center">

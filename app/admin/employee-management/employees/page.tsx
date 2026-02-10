@@ -1,17 +1,59 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth, UserRole } from "@/app/context/AuthContext";
 import { PlusCircle } from "lucide-react";
 
 export default function EmployeeManagement() {
-  const { employees, token } = useAuth();
+  const { token } = useAuth();
+
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [empLoading, setEmpLoading] = useState(true);
 
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [createdEmployee, setCreatedEmployee] = useState<any>(null);
   const [newEmpRole, setNewEmpRole] = useState<UserRole>("EMPLOYEE");
 
+  // 🔹 Fetch all employees (ADMIN)
+  const fetchEmployees = async () => {
+    if (!token) {
+      setEmpLoading(false);
+      return;
+    }
+
+    try {
+      setEmpLoading(true);
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/employees`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to fetch employees");
+      }
+
+      setEmployees(data.data);
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+    } finally {
+      setEmpLoading(false);
+    }
+  };
+
+  // 🔹 Initial fetch
+  useEffect(() => {
+    fetchEmployees();
+  }, [token]);
+
+  // 🔹 Add employee
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -30,7 +72,7 @@ export default function EmployeeManagement() {
             email,
             role: newEmpRole,
           }),
-        }
+        },
       );
 
       const data = await res.json();
@@ -44,6 +86,9 @@ export default function EmployeeManagement() {
       // Reset form
       setEmail("");
       setNewEmpRole("EMPLOYEE");
+
+      // ✅ IMPORTANT: refetch full employee list
+      await fetchEmployees();
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -95,17 +140,14 @@ export default function EmployeeManagement() {
           </div>
 
           <div className="md:col-span-2 flex justify-end">
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary"
-            >
+            <button type="submit" disabled={loading} className="btn-primary">
               {loading ? "Creating..." : "Create Account"}
             </button>
           </div>
         </form>
       </div>
 
+      {/* Success Message */}
       {createdEmployee && (
         <div className="mt-6 bg-green-50 border border-green-200 p-4 rounded-lg">
           <h4 className="font-semibold text-green-700 mb-2">
@@ -131,51 +173,70 @@ export default function EmployeeManagement() {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Employee Directory
         </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="py-3 px-4 text-sm font-medium text-gray-500">
-                  ID
-                </th>
-                <th className="py-3 px-4 text-sm font-medium text-gray-500">
-                  Name
-                </th>
-                <th className="py-3 px-4 text-sm font-medium text-gray-500">
-                  Role
-                </th>
-                <th className="py-3 px-4 text-sm font-medium text-gray-500">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {employees.map((emp) => (
-                <tr
-                  key={emp.id}
-                  className="border-b border-gray-100 hover:bg-gray-50"
-                >
-                  <td className="py-3 px-4 text-gray-900">{emp.id}</td>
-                  <td className="py-3 px-4 text-gray-900">{emp.name}</td>
-                  <td className="py-3 px-4">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        emp.role === "ADMIN"
-                          ? "bg-purple-100 text-purple-700"
-                          : "bg-green-100 text-green-700"
-                      }`}
-                    >
-                      {emp.role.toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="text-gray-400 text-sm">Active</span>
-                  </td>
+
+        {empLoading ? (
+          <p className="text-gray-500">Loading employees...</p>
+        ) : employees.length === 0 ? (
+          <p className="text-gray-500">No employees found</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="py-3 px-4 text-sm font-medium text-gray-500">
+                    Employee ID
+                  </th>
+                  <th className="py-3 px-4 text-sm font-medium text-gray-500">
+                    Email
+                  </th>
+                  <th className="py-3 px-4 text-sm font-medium text-gray-500">
+                    Role
+                  </th>
+                  <th className="py-3 px-4 text-sm font-medium text-gray-500">
+                    Status
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+
+              <tbody>
+                {employees.map((emp) => (
+                  <tr
+                    key={emp._id} // internal only
+                    className="border-b border-gray-100 hover:bg-gray-50"
+                  >
+                    <td className="py-3 px-4 text-gray-900">
+                      {emp.employeeId}
+                    </td>
+
+                    <td className="py-3 px-4 text-gray-900">{emp.email}</td>
+
+                    <td className="py-3 px-4">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          emp.role === "ADMIN"
+                            ? "bg-purple-100 text-purple-700"
+                            : "bg-green-100 text-green-700"
+                        }`}
+                      >
+                        {emp.role}
+                      </span>
+                    </td>
+
+                    <td className="py-3 px-4">
+                      <span
+                        className={`text-sm ${
+                          emp.isActive ? "text-green-600" : "text-red-600"
+                        }`}
+                      >
+                        {emp.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

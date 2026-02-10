@@ -22,7 +22,7 @@ export default function AdminDashboard() {
           </div>
         </div>
         {/* Add more stats here if needed */}
-        <div className="card flex items-center space-x-4">
+        {/* <div className="card flex items-center space-x-4">
           <div className="p-3 bg-purple-100 text-purple-600 rounded-full">
             <Users size={24} />
           </div>
@@ -32,7 +32,7 @@ export default function AdminDashboard() {
               {employees.filter((e) => e.role === "ADMIN").length}
             </p>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );

@@ -1,227 +1,324 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth, EmployeeProfile } from "@/app/context/AuthContext";
+import { useAuth } from "@/app/context/AuthContext";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Upload, X, CheckCircle } from "lucide-react";
+import { ArrowLeft, Upload, CheckCircle } from "lucide-react";
 import Image from "next/image";
 
 export default function EmployeeDetails() {
-  const { user, updateEmployeeProfile } = useAuth();
+  const { user, token } = useAuth();
   const router = useRouter();
 
-  const [formData, setFormData] = useState<EmployeeProfile>({
+  // ---------------------------
+  // Text form data
+  // ---------------------------
+  const [formData, setFormData] = useState({
     name: "",
     email: "",
-    phone: "",
-    aadhaar: "",
-    pan: "",
-    otherDocs: [],
+    contact: "",
   });
 
-  const [previews, setPreviews] = useState<{ [key: string]: string }>({});
+  // ---------------------------
+  // Files for upload (REAL File objects)
+  // ---------------------------
+  const [files, setFiles] = useState<{
+    photo: File | null;
+    aadhaar: File | null;
+    pan: File | null;
+  }>({
+    photo: null,
+    aadhaar: null,
+    pan: null,
+  });
 
+  // ---------------------------
+  // Preview URLs (UI only)
+  // ---------------------------
+  const [previews, setPreviews] = useState<{
+    photo?: string;
+    aadhaar?: string;
+    pan?: string;
+  }>({});
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // ---------------------------
+  // Prefill data
+  // ---------------------------
   useEffect(() => {
     if (!user || user.role !== "EMPLOYEE") {
       router.push("/employee/login");
       return;
     }
-    // Pre-fill if exists
-    if (user.profile) {
-      setFormData(user.profile);
-      // In real app, these would be URLs. For mock, we assume they are valid image sources if present.
-    } else {
-      setFormData((prev) => ({ ...prev, name: user.name }));
-    }
+
+    setFormData({
+      name: user.name || "",
+      email: user.email || "",
+      contact: "",
+    });
   }, [user, router]);
 
+  // ---------------------------
+  // Cleanup preview URLs
+  // ---------------------------
+  useEffect(() => {
+    return () => {
+      Object.values(previews).forEach((url) => {
+        if (url) URL.revokeObjectURL(url);
+      });
+    };
+  }, [previews]);
+
+  // ---------------------------
+  // Text input handler
+  // ---------------------------
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // ---------------------------
+  // File handler (UPLOAD + PREVIEW)
+  // ---------------------------
   const handleFileUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
-    field: string,
+    field: "photo" | "aadhaar" | "pan",
   ) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setFormData((prev) => ({ ...prev, [field]: result }));
-        setPreviews((prev) => ({ ...prev, [field]: result }));
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+
+    // 1️⃣ Store File object for backend
+    setFiles((prev) => ({
+      ...prev,
+      [field]: file,
+    }));
+
+    // 2️⃣ Create preview URL for UI
+    const previewUrl = URL.createObjectURL(file);
+
+    setPreviews((prev) => ({
+      ...prev,
+      [field]: previewUrl,
+    }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // ---------------------------
+  // Submit (multipart/form-data)
+  // ---------------------------
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (user) {
-      updateEmployeeProfile(user.id, formData);
+
+    // 🔍 DEBUG: auth
+    console.log("TOKEN:", token);
+
+    if (!token) {
+      setError("Not authenticated");
+      return;
+    }
+
+    // 🔍 DEBUG: text inputs
+    console.log("FORM DATA (TEXT):", {
+      name: formData.name,
+      email: formData.email,
+      contact: formData.contact,
+    });
+
+    // 🔍 DEBUG: file inputs (existence + metadata)
+    console.log("FILES:", {
+      aadhaar: files.aadhaar
+        ? {
+            name: files.aadhaar.name,
+            type: files.aadhaar.type,
+            size: files.aadhaar.size,
+          }
+        : null,
+      pan: files.pan
+        ? {
+            name: files.pan.name,
+            type: files.pan.type,
+            size: files.pan.size,
+          }
+        : null,
+      photo: files.photo
+        ? {
+            name: files.photo.name,
+            type: files.photo.type,
+            size: files.photo.size,
+          }
+        : null,
+    });
+
+    // 🔴 FRONTEND GUARD
+    if (!files.aadhaar || !files.pan) {
+      setError("Please upload Aadhaar and PAN documents");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError(null);
+
+      const payload = new FormData();
+      payload.append("name", formData.name);
+      payload.append("email", formData.email);
+      payload.append("contact", formData.contact);
+
+      payload.append("aadhaar", files.aadhaar);
+      payload.append("pan", files.pan);
+
+      if (files.photo) payload.append("photo", files.photo);
+
+      // 🔍 DEBUG: FormData entries (VERY IMPORTANT)
+      console.log("FORM DATA PAYLOAD:");
+      for (const [key, value] of payload.entries()) {
+        if (value instanceof File) {
+          console.log(
+            `${key}: [File]`,
+            value.name,
+            value.type,
+            `${(value.size / 1024).toFixed(2)} KB`,
+          );
+        } else {
+          console.log(`${key}:`, value);
+        }
+      }
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/employee/details`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: payload,
+        },
+      );
+
+      console.log("RESPONSE STATUS:", res.status);
+
+      const text = await res.text();
+
+      console.log("RAW RESPONSE TEXT:", text);
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        console.error("HTML response from server:", text);
+        throw new Error("Server error. Please try again.");
+      }
+
+      console.log("PARSED RESPONSE JSON:", data);
+
+      if (!res.ok) {
+        throw new Error(data.message || "Submission failed");
+      }
+
       router.push("/employee/profile");
+    } catch (err: any) {
+      console.error("SUBMIT ERROR:", err);
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-3xl mx-auto">
         <button
           onClick={() => router.back()}
-          className="flex items-center text-gray-600 hover:text-gray-900 mb-6 transition-colors"
+          className="flex items-center text-gray-600 hover:text-gray-900 mb-6"
         >
           <ArrowLeft size={20} className="mr-2" />
-          Back to Dashboard
+          Back
         </button>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-8 py-6 border-b border-gray-100 bg-gray-50/50">
-            <h1 className="text-2xl font-bold text-gray-900">
-              Employee Details Form
-            </h1>
-            <p className="text-gray-500 mt-1">
-              Please fill in your information accurately.
-            </p>
+        <div className="bg-white rounded-xl shadow border">
+          <div className="px-8 py-6 border-b bg-gray-50">
+            <h1 className="text-2xl font-bold">Employee Details</h1>
           </div>
 
           <form onSubmit={handleSubmit} className="p-8 space-y-8">
-            {/* Personal Info Section */}
-            <section className="space-y-6">
-              <h2 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">
-                Personal Information
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="input-field"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="input-field"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    className="input-field"
-                    required
-                  />
-                </div>
-              </div>
-            </section>
+            {/* Personal Info */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <input
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="Full Name"
+                className="input-field"
+                required
+              />
 
-            {/* Documents Section */}
-            <section className="space-y-6">
-              <h2 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">
-                Document Uploads
-              </h2>
+              <input
+                name="email"
+                value={formData.email}
+                disabled
+                className="input-field"
+              />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Aadhaar Upload */}
-                <div className="space-y-3">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Aadhaar Card Image
+              <input
+                name="contact"
+                value={formData.contact}
+                onChange={handleInputChange}
+                placeholder="Phone Number"
+                className="input-field"
+                required
+              />
+            </div>
+
+            {/* Documents */}
+            <div className="grid md:grid-cols-2 gap-8">
+              {(["aadhaar", "pan"] as const).map((field) => (
+                <div key={field}>
+                  <label className="text-sm font-medium capitalize">
+                    {field} Card
                   </label>
-                  <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-blue-500 transition-colors text-center group bg-gray-50 hover:bg-blue-50/50">
+
+                  <div className="relative border-2 border-dashed rounded-lg p-4 mt-2 text-center">
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => handleFileUpload(e, "aadhaar")}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={(e) => handleFileUpload(e, field)}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
                     />
-                    {formData.aadhaar ? (
-                      <div className="relative w-full h-32 rounded overflow-hidden">
-                        <Image
-                          src={formData.aadhaar}
-                          alt="Aadhaar Preview"
-                          fill
-                          className="object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <p className="text-white text-sm font-medium">
-                            Click to Change
-                          </p>
-                        </div>
-                      </div>
+
+                    {previews[field] ? (
+                      <Image
+                        src={previews[field]!}
+                        alt={field}
+                        width={300}
+                        height={160}
+                        className="object-cover rounded"
+                      />
                     ) : (
-                      <div className="flex flex-col items-center text-gray-400 group-hover:text-blue-500">
-                        <Upload size={32} className="mb-2" />
-                        <span className="text-sm">Click to upload Aadhaar</span>
+                      <div className="text-gray-400">
+                        <Upload className="mx-auto mb-2" />
+                        Click to upload
                       </div>
                     )}
                   </div>
                 </div>
+              ))}
+            </div>
 
-                {/* PAN Upload */}
-                <div className="space-y-3">
-                  <label className="block text-sm font-medium text-gray-700">
-                    PAN Card Image
-                  </label>
-                  <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-blue-500 transition-colors text-center group bg-gray-50 hover:bg-blue-50/50">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileUpload(e, "pan")}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    {formData.pan ? (
-                      <div className="relative w-full h-32 rounded overflow-hidden">
-                        <Image
-                          src={formData.pan}
-                          alt="PAN Preview"
-                          fill
-                          className="object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <p className="text-white text-sm font-medium">
-                            Click to Change
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center text-gray-400 group-hover:text-blue-500">
-                        <Upload size={32} className="mb-2" />
-                        <span className="text-sm">Click to upload PAN</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </section>
+            {error && (
+              <div className="bg-red-50 text-red-700 p-3 rounded">{error}</div>
+            )}
 
-            <div className="pt-6 border-t border-gray-100 flex justify-end">
+            <div className="flex justify-end">
               <button
                 type="submit"
-                className="btn-primary flex items-center space-x-2 px-8"
+                disabled={submitting || !files.aadhaar || !files.pan}
+                className="btn-primary flex items-center gap-2"
               >
-                <CheckCircle size={20} />
-                <span>Submit Details</span>
+                <CheckCircle size={18} />
+                {submitting ? "Saving..." : "Submit Details"}
               </button>
             </div>
           </form>

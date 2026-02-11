@@ -180,13 +180,10 @@ export default function EmployeeManagement() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-10">
-      {/* Page Title */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Employee Management
-        </h1>
-        <p className="text-gray-500 mt-1">
+    <div className="max-w-7xl mx-auto px-4 py-4">
+      {/* Page Description Only (No Duplicate Heading) */}
+      <div className="mb-5">
+        <p className="text-sm text-gray-500">
           Manage employees, verification and activation status.
         </p>
       </div>

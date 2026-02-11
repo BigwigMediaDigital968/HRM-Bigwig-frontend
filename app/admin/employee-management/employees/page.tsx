@@ -478,13 +478,65 @@ export default function EmployeeManagement() {
             )}
 
             {/* Footer */}
-            <div className="flex justify-end mt-8">
-              <button
-                onClick={() => setModalOpen(false)}
-                className="px-5 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition"
-              >
-                Close
-              </button>
+            <div className="flex justify-between items-center mt-8 border-t pt-6">
+              {/* Left Side: Verification Status */}
+              <div>
+                <span className="text-sm text-gray-500 mr-2">
+                  Current Status:
+                </span>
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    selectedEmployee.verificationStatus === "APPROVED"
+                      ? "bg-green-100 text-green-700"
+                      : selectedEmployee.verificationStatus === "REJECTED"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-yellow-100 text-yellow-700"
+                  }`}
+                >
+                  {selectedEmployee.verificationStatus || "PENDING"}
+                </span>
+              </div>
+
+              {/* Right Side: Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setModalOpen(false)}
+                  className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition text-sm"
+                >
+                  Close
+                </button>
+
+                {/* Show verify/reject only if not already approved */}
+                {selectedEmployee.verificationStatus !== "APPROVED" && (
+                  <>
+                    <button
+                      onClick={() =>
+                        handleVerification(
+                          selectedEmployee.employeeId,
+                          "REJECTED",
+                        )
+                      }
+                      disabled={actionLoading}
+                      className="px-4 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition text-sm font-medium disabled:opacity-50"
+                    >
+                      {actionLoading ? "Processing..." : "Reject"}
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        handleVerification(
+                          selectedEmployee.employeeId,
+                          "APPROVED",
+                        )
+                      }
+                      disabled={actionLoading}
+                      className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition text-sm font-medium disabled:opacity-50"
+                    >
+                      {actionLoading ? "Processing..." : "Approve"}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

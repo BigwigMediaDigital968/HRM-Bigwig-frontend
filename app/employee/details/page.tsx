@@ -178,8 +178,11 @@ export default function EmployeeDetails() {
         : null,
     });
 
-    // FRONTEND GUARD
-    if (!files.aadhaar || !files.pan) {
+    // FRONTEND GUARD (handle existing + new uploads)
+    if (
+      (!files.aadhaar && !previews.aadhaar) ||
+      (!files.pan && !previews.pan)
+    ) {
       setError("Please upload Aadhaar and PAN documents");
       return;
     }
@@ -189,14 +192,22 @@ export default function EmployeeDetails() {
       setError(null);
 
       const payload = new FormData();
+
       payload.append("name", formData.name);
       payload.append("email", formData.email);
       payload.append("contact", formData.contact);
 
-      payload.append("aadhaar", files.aadhaar);
-      payload.append("pan", files.pan);
+      if (files.aadhaar) {
+        payload.append("aadhaar", files.aadhaar);
+      }
 
-      if (files.photo) payload.append("photo", files.photo);
+      if (files.pan) {
+        payload.append("pan", files.pan);
+      }
+
+      if (files.photo) {
+        payload.append("photo", files.photo);
+      }
 
       // 🔍 DEBUG: FormData entries (VERY IMPORTANT)
       console.log("FORM DATA PAYLOAD:");
@@ -342,7 +353,11 @@ export default function EmployeeDetails() {
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={submitting || !files.aadhaar || !files.pan}
+                disabled={
+                  submitting ||
+                  (!files.aadhaar && !previews.aadhaar) ||
+                  (!files.pan && !previews.pan)
+                }
                 className="btn-primary flex items-center gap-2"
               >
                 <CheckCircle size={18} />

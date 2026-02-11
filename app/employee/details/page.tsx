@@ -244,7 +244,7 @@ export default function EmployeeDetails() {
         throw new Error(data.message || "Submission failed");
       }
 
-      router.push("/employee/profile");
+      router.replace("/employee/dashboard");
     } catch (err: any) {
       console.error("SUBMIT ERROR:", err);
       setError(err.message);

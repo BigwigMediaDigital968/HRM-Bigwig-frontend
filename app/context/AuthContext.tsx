@@ -27,6 +27,7 @@ export interface User {
   name: string;
   email?: string;
   role: UserRole;
+  verificationStatus?: "PENDING" | "APPROVED" | "REJECTED";
   profile?: EmployeeProfile;
 }
 
@@ -114,17 +115,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       );
 
       const json = await res.json();
+
       if (!res.ok || !json.success) {
         throw new Error(json.message || "Login failed");
       }
 
       const { token, employee } = json.data;
 
+      console.log("LOGIN API RESPONSE - EMPLOYEE OBJECT:", employee);
+
+      /* ================= CREATE USER SESSION FIRST ================= */
+
       const loggedUser: User = {
         id: employee.employeeId,
-        name: employee.name || employee.email.split("@")[0],
+        name: employee.email.split("@")[0],
         email: employee.email,
         role: employee.role,
+        verificationStatus: employee.verificationStatus,
       };
 
       setUser(loggedUser);
@@ -133,14 +140,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.setItem("hrm_user", JSON.stringify(loggedUser));
       localStorage.setItem("hrm_token", token);
 
-      // ✅ fetch profile ONLY for employee
-      fetchEmployeeProfile(token, loggedUser);
+      /* ================= FETCH PROFILE (OPTIONAL) ================= */
+
+      if (employee.role === "EMPLOYEE") {
+        await fetchEmployeeProfile(token, loggedUser);
+      }
 
       toast.success(`Welcome ${loggedUser.name}!`);
+
+      /* ================= ROUTE BASED ON ROLE ================= */
+
       router.push(
-        loggedUser.role === "ADMIN"
-          ? "/admin/dashboard"
-          : "/employee/dashboard",
+        employee.role === "ADMIN" ? "/admin/dashboard" : "/employee/dashboard",
       );
 
       return true;

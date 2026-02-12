@@ -40,31 +40,17 @@ export default function EmployeeLayout({
 
   /* ================= AUTH CHECK ================= */
   useEffect(() => {
+    if (!mounted || loading) return;
+
     if (pathname === "/employee/login") return;
 
-    if (!loading && mounted && user) {
-      if (user.role !== "EMPLOYEE") {
-        router.push("/employee/login");
-        return;
-      }
+    if (!user) {
+      router.push("/employee/login");
+      return;
+    }
 
-      const isApproved = user.verificationStatus === "APPROVED";
-
-      if (!isApproved) {
-        const allowedPaths = [
-          "/employee/dashboard",
-          "/employee/details",
-          "/employee/profile",
-        ];
-
-        const isAllowed = allowedPaths.some((path) =>
-          pathname.startsWith(path),
-        );
-
-        if (!isAllowed) {
-          router.push("/employee/dashboard");
-        }
-      }
+    if (user.role !== "EMPLOYEE") {
+      router.push("/employee/login");
     }
   }, [user, loading, mounted, pathname, router]);
 

@@ -54,13 +54,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   /* ---------- Restore session ---------- */
   useEffect(() => {
-    const storedUser = localStorage.getItem("hrm_user");
-    const storedToken = localStorage.getItem("hrm_token");
+    const restoreSession = async () => {
+      const storedUser = localStorage.getItem("hrm_user");
+      const storedToken = localStorage.getItem("hrm_token");
 
-    if (storedUser) setUser(JSON.parse(storedUser));
-    if (storedToken) setToken(storedToken);
+      if (storedUser && storedToken) {
+        setUser(JSON.parse(storedUser));
+        setToken(storedToken);
+      }
 
-    setLoading(false);
+      setLoading(false);
+    };
+
+    restoreSession();
   }, []);
 
   /* ---------- Fetch employee profile safely ---------- */

@@ -45,13 +45,25 @@ export default function EmployeeLayout({
     if (!loading && mounted && user) {
       if (user.role !== "EMPLOYEE") {
         router.push("/employee/login");
+        return;
       }
 
-      if (
-        user.verificationStatus !== "APPROVED" &&
-        pathname !== "/employee/dashboard"
-      ) {
-        router.push("/employee/dashboard");
+      const isApproved = user.verificationStatus === "APPROVED";
+
+      if (!isApproved) {
+        const allowedPaths = [
+          "/employee/dashboard",
+          "/employee/details",
+          "/employee/profile",
+        ];
+
+        const isAllowed = allowedPaths.some((path) =>
+          pathname.startsWith(path),
+        );
+
+        if (!isAllowed) {
+          router.push("/employee/dashboard");
+        }
       }
     }
   }, [user, loading, mounted, pathname, router]);

@@ -29,6 +29,7 @@ export interface User {
   role: UserRole;
   verificationStatus?: "PENDING" | "APPROVED" | "REJECTED";
   profile?: EmployeeProfile;
+  isActive?: boolean;
 }
 
 interface AuthContextType {
@@ -132,6 +133,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email: employee.email,
         role: employee.role,
         verificationStatus: employee.verificationStatus,
+        isActive: employee.isActive,
       };
 
       setUser(loggedUser);

@@ -24,6 +24,8 @@ export default function EmployeeLayout({
   const [mounted, setMounted] = useState(false);
   const [isLeavesOpen, setIsLeavesOpen] = useState(true);
 
+  const [profileOpen, setProfileOpen] = useState(false);
+
   /* ================= MOUNT FIX ================= */
   useEffect(() => {
     setMounted(true);
@@ -187,12 +189,80 @@ export default function EmployeeLayout({
       {/* ================= MAIN CONTENT ================= */}
       <div className="flex-1 flex flex-col ml-64 h-full w-[calc(100%-16rem)]">
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8 shrink-0 sticky top-0 z-10 w-full">
-          <h2 className="text-xl font-semibold text-gray-800">
-            {getPageTitle()}
-          </h2>
-          <div className="flex items-center space-x-4">
-            <span className="text-gray-600">Welcome, {user.name}</span>
+        {/* ================= HEADER ================= */}
+        <header className="bg-white border-b border-gray-200 h-20 flex items-center justify-between px-10 sticky top-0 z-10 shadow-sm">
+          {/* Page Title */}
+          <div>
+            <h2 className="text-2xl font-semibold text-gray-800">
+              {getPageTitle()}
+            </h2>
+          </div>
+
+          {/* Right Section */}
+          <div className="flex items-center gap-6">
+            {/* Welcome Text */}
+            <div className="hidden sm:block text-right">
+              <p className="text-sm text-gray-500">Welcome back,</p>
+              <p className="font-semibold text-gray-800">{user.name}</p>
+            </div>
+
+            {/* Profile Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="relative flex items-center focus:outline-none"
+              >
+                {/* Avatar */}
+                {user.profile?.photo?.url ? (
+                  <img
+                    src={user.profile.photo.url}
+                    alt="Profile"
+                    className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-md hover:shadow-lg transition"
+                  />
+                ) : (
+                  <div className="w-11 h-11 rounded-full bg-slate-900 text-white flex items-center justify-center font-semibold text-lg shadow-md hover:shadow-lg transition">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+
+                {/* Small dropdown indicator dot */}
+                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+              </button>
+
+              {/* Dropdown */}
+              {profileOpen && (
+                <div className="absolute right-0 mt-4 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50 animate-fadeIn">
+                  {/* User Info */}
+                  <div className="px-5 pb-3 border-b border-gray-100">
+                    <p className="text-sm text-gray-500">Signed in as</p>
+                    <p className="font-semibold text-gray-800 truncate">
+                      {user.name}
+                    </p>
+                  </div>
+
+                  {/* Menu Items */}
+                  <div className="mt-2">
+                    <Link
+                      href="/employee/profile"
+                      onClick={() => setProfileOpen(false)}
+                      className="block px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                    >
+                      View Profile
+                    </Link>
+
+                    <button
+                      onClick={() => {
+                        setProfileOpen(false);
+                        logout();
+                      }}
+                      className="w-full text-left px-5 py-2.5 text-sm text-red-600 hover:bg-red-50 transition"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 

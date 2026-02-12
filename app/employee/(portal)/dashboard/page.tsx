@@ -78,11 +78,11 @@ export default function EmployeeDashboard() {
         </div>
       )}
 
-      {isApproved && (
+      {/* {isApproved && (
         <div className="bg-green-50 border border-green-200 text-green-700 p-4 rounded-lg text-center">
           Your profile has been approved successfully.
         </div>
-      )}
+      )} */}
 
       <div className="text-center">
         <h2 className="text-2xl font-bold text-gray-900">
@@ -107,7 +107,7 @@ export default function EmployeeDashboard() {
           </Link>
         )}
 
-        <Link
+        {/* <Link
           href="/employee/profile"
           className="bg-white rounded-xl shadow-sm border hover:shadow-md transition p-10 text-center"
         >
@@ -116,7 +116,7 @@ export default function EmployeeDashboard() {
           <p className="text-gray-500 mt-2 text-sm">
             View submitted details and status.
           </p>
-        </Link>
+        </Link> */}
       </div>
     </div>
   );

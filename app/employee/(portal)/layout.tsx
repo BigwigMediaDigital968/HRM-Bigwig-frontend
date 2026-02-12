@@ -190,10 +190,10 @@ export default function EmployeeLayout({
       <div className="flex-1 flex flex-col ml-64 h-full w-[calc(100%-16rem)]">
         {/* Header */}
         {/* ================= HEADER ================= */}
-        <header className="bg-white border-b border-gray-200 h-20 flex items-center justify-between px-10 sticky top-0 z-10 shadow-sm">
+        <header className="bg-gradient-to-r from-slate-50 via-white to-slate-50 border-b border-slate-200 h-20 flex items-center justify-between px-10 sticky top-0 z-10 shadow-sm">
           {/* Page Title */}
           <div>
-            <h2 className="text-2xl font-semibold text-gray-800">
+            <h2 className="text-2xl font-semibold text-slate-800 tracking-tight">
               {getPageTitle()}
             </h2>
           </div>
@@ -202,8 +202,8 @@ export default function EmployeeLayout({
           <div className="flex items-center gap-6">
             {/* Welcome Text */}
             <div className="hidden sm:block text-right">
-              <p className="text-sm text-gray-500">Welcome back,</p>
-              <p className="font-semibold text-gray-800">{user.name}</p>
+              <p className="text-sm text-slate-500">Welcome back,</p>
+              <p className="font-semibold text-slate-900">{user.name}</p>
             </div>
 
             {/* Profile Dropdown */}
@@ -217,7 +217,7 @@ export default function EmployeeLayout({
                   <img
                     src={user.profile.photo.url}
                     alt="Profile"
-                    className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-md hover:shadow-lg transition"
+                    className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-md ring-2 ring-slate-200 hover:ring-slate-400 transition"
                   />
                 ) : (
                   <div className="w-11 h-11 rounded-full bg-slate-900 text-white flex items-center justify-center font-semibold text-lg shadow-md hover:shadow-lg transition">
@@ -225,17 +225,17 @@ export default function EmployeeLayout({
                   </div>
                 )}
 
-                {/* Small dropdown indicator dot */}
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                {/* Online Indicator */}
+                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full shadow-sm"></span>
               </button>
 
               {/* Dropdown */}
               {profileOpen && (
-                <div className="absolute right-0 mt-4 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50 animate-fadeIn">
+                <div className="absolute right-0 mt-4 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 py-3 z-50">
                   {/* User Info */}
-                  <div className="px-5 pb-3 border-b border-gray-100">
-                    <p className="text-sm text-gray-500">Signed in as</p>
-                    <p className="font-semibold text-gray-800 truncate">
+                  <div className="px-5 pb-3 border-b border-slate-100">
+                    <p className="text-sm text-slate-500">Signed in as</p>
+                    <p className="font-semibold text-slate-800 truncate">
                       {user.name}
                     </p>
                   </div>
@@ -245,7 +245,7 @@ export default function EmployeeLayout({
                     <Link
                       href="/employee/profile"
                       onClick={() => setProfileOpen(false)}
-                      className="block px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                      className="block px-5 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition"
                     >
                       View Profile
                     </Link>

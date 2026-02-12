@@ -159,7 +159,7 @@ export default function AdminLayout({
       {/* Main Content Wrapper */}
       <div className="flex-1 flex flex-col ml-64 h-full w-[calc(100%-16rem)]">
         {/* Header - Fixed at top of content area */}
-        <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8 shrink-0 sticky top-0 z-10 w-full">
+        <header className="bg-gradient-to-r from-slate-50 via-white to-slate-50 border-b border-slate-200 h-20 flex items-center justify-between px-10 sticky top-0 z-10 shadow-sm">
           <h2 className="text-xl font-semibold text-gray-800">
             {getPageTitle()}
           </h2>

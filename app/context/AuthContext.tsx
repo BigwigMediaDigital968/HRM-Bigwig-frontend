@@ -54,13 +54,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   /* ---------- Restore session ---------- */
   useEffect(() => {
-    const restoreSession = async () => {
-      const storedUser = localStorage.getItem("hrm_user");
-      const storedToken = localStorage.getItem("hrm_token");
+    const restoreSession = () => {
+      const path = window.location.pathname;
 
-      if (storedUser && storedToken) {
-        setUser(JSON.parse(storedUser));
-        setToken(storedToken);
+      if (path.startsWith("/admin")) {
+        const storedUser = localStorage.getItem("hrm_admin_user");
+        const storedToken = localStorage.getItem("hrm_admin_token");
+
+        if (storedUser && storedToken) {
+          setUser(JSON.parse(storedUser));
+          setToken(storedToken);
+        }
+      } else if (path.startsWith("/employee")) {
+        const storedUser = localStorage.getItem("hrm_employee_user");
+        const storedToken = localStorage.getItem("hrm_employee_token");
+
+        if (storedUser && storedToken) {
+          setUser(JSON.parse(storedUser));
+          setToken(storedToken);
+        }
       }
 
       setLoading(false);
@@ -145,8 +157,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(loggedUser);
       setToken(token);
 
-      localStorage.setItem("hrm_user", JSON.stringify(loggedUser));
-      localStorage.setItem("hrm_token", token);
+      if (employee.role === "ADMIN") {
+        localStorage.setItem("hrm_admin_user", JSON.stringify(loggedUser));
+        localStorage.setItem("hrm_admin_token", token);
+      } else {
+        localStorage.setItem("hrm_employee_user", JSON.stringify(loggedUser));
+        localStorage.setItem("hrm_employee_token", token);
+      }
 
       /* ================= FETCH PROFILE (OPTIONAL) ================= */
 
@@ -173,7 +190,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = () => {
     setUser(null);
     setToken(null);
-    localStorage.clear();
+    if (user?.role === "ADMIN") {
+      localStorage.removeItem("hrm_admin_user");
+      localStorage.removeItem("hrm_admin_token");
+    } else {
+      localStorage.removeItem("hrm_employee_user");
+      localStorage.removeItem("hrm_employee_token");
+    }
+
     toast.info("Logged out");
     router.push("/");
   };

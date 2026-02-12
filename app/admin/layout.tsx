@@ -36,15 +36,14 @@ export default function AdminLayout({
   }, [pathname]);
 
   useEffect(() => {
-    // Skip auth check for login page
+    if (!mounted) return;
     if (pathname === "/admin/login") return;
+    if (loading) return; // 🔴 VERY IMPORTANT
 
-    if (!loading && mounted) {
-      if (!user || user.role !== "ADMIN") {
-        router.push("/admin/login");
-      }
+    if (!user || user.role !== "ADMIN") {
+      router.replace("/admin/login");
     }
-  }, [user, loading, router, mounted, pathname]);
+  }, [user, loading, mounted, pathname, router]);
 
   // Prevent flash of content or hydration mismatch
   if (!mounted) return null;
@@ -55,8 +54,10 @@ export default function AdminLayout({
   }
 
   // Show nothing while checking auth or if not admin
-  if (loading || !user || user.role !== "ADMIN") {
-    return null; // Or a loading spinner
+  if (loading) return null;
+
+  if (!user || user.role !== "ADMIN") {
+    return null;
   }
 
   const getPageTitle = () => {

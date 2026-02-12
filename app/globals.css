@@ -8,6 +8,19 @@
   --color-surface: #ffffff; /* White */
 }
 
+:root {
+  --bw-primary: #0052cc;
+  --bw-secondary: #0ea5e9;
+  --bw-accent: #f59e0b;
+  --bw-dark: #111827;
+  --bw-light: #f8fafc;
+}
+
+body {
+  background-color: var(--bw-light);
+  color: var(--bw-dark);
+}
+
 body {
   @apply bg-background text-gray-900;
 }

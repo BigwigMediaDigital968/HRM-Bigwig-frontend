@@ -72,7 +72,7 @@ export default function AdminLayout({
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Sidebar - Fixed */}
-      <aside className="w-64 bg-slate-900 text-white flex flex-col fixed h-full z-20 left-0 top-0">
+      <aside className="w-80 bg-slate-900 text-white flex flex-col fixed h-full z-20 left-0 top-0">
         <div className="p-6 border-b border-slate-800 shrink-0">
           <h1 className="text-2xl font-bold">Bigwig HRM</h1>
           <p className="text-slate-400 text-sm">Admin Panel</p>
@@ -104,7 +104,7 @@ export default function AdminLayout({
             >
               <div className="flex items-center space-x-3">
                 <Users size={20} />
-                <span>Employee Mgmt</span>
+                <span>Employee Management</span>
               </div>
               {isEmployeeMgmtOpen ? (
                 <ChevronDown size={16} />
@@ -157,9 +157,9 @@ export default function AdminLayout({
       </aside>
 
       {/* Main Content Wrapper */}
-      <div className="flex-1 flex flex-col ml-64 h-full w-[calc(100%-16rem)]">
+      <div className="flex-1 flex flex-col ml-80 h-full w-[calc(100%-16rem)]">
         {/* Header - Fixed at top of content area */}
-        <header className="bg-gradient-to-r from-slate-50 via-white to-slate-50 border-b border-slate-200 h-20 flex items-center justify-between px-10 sticky top-0 z-10 shadow-sm">
+        <header className="bg-linear-to-r from-slate-50 via-white to-slate-50 border-b border-slate-200 h-20 flex items-center justify-between px-10 sticky top-0 z-10 shadow-sm">
           <h2 className="text-xl font-semibold text-gray-800">
             {getPageTitle()}
           </h2>

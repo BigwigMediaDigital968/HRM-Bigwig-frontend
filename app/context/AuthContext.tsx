@@ -141,7 +141,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       const { token, employee } = json.data;
 
-      console.log("LOGIN API RESPONSE - EMPLOYEE OBJECT:", employee);
+      // console.log("LOGIN API RESPONSE - EMPLOYEE OBJECT:", employee);
 
       /* ================= CREATE USER SESSION FIRST ================= */
 

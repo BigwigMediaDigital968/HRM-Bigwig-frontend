@@ -22,7 +22,7 @@ export default function EmployeeManagement() {
   /* ================= FETCH EMPLOYEES ================= */
 
   const fetchEmployees = async () => {
-    if (!token) return;
+    // if (!token) return;
 
     try {
       setEmpLoading(true);
@@ -48,7 +48,9 @@ export default function EmployeeManagement() {
   };
 
   useEffect(() => {
-    fetchEmployees();
+    if (token) {
+      fetchEmployees();
+    }
   }, [token]);
 
   /* ================= CREATE EMPLOYEE ================= */
@@ -155,7 +157,7 @@ export default function EmployeeManagement() {
       setActionLoading(true);
 
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/employee/${employeeId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/employee/${employeeId}/toggle-status`,
         {
           method: "PUT",
           headers: {

@@ -102,7 +102,7 @@ export default function AdminLayout({
                   : "text-slate-400 hover:text-white hover:bg-slate-800/50"
               }`}
             >
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3 cursor-pointer">
                 <Users size={20} />
                 <span>Employee Management</span>
               </div>
@@ -118,7 +118,7 @@ export default function AdminLayout({
               <div className="mt-1 ml-4 space-y-1 border-l border-slate-800 pl-2">
                 <Link
                   href="/admin/employee-management/employees"
-                  className={`flex items-center space-x-3 px-4 py-2 rounded-lg text-sm transition-colors ${
+                  className={`flex items-center space-x-3 px-4 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
                     pathname.includes("/admin/employee-management/employees")
                       ? "text-blue-400 font-medium bg-slate-800/50"
                       : "text-slate-400 hover:text-white hover:bg-slate-800/30"
@@ -143,6 +143,19 @@ export default function AdminLayout({
               </div>
             )}
           </div>
+
+          {/* Attendance Management */}
+          <Link
+            href="/admin/attendance-management"
+            className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+              pathname === "/admin/attendance-management"
+                ? "bg-slate-800 text-white"
+                : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+            }`}
+          >
+            <LayoutDashboard size={20} />
+            <span>Attendance Management</span>
+          </Link>
         </nav>
 
         <div className="p-4 border-t border-slate-800 shrink-0">

@@ -181,6 +181,8 @@ export default function EmployeeManagement() {
     }
   };
 
+  console.log(employees);
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-4">
       {/* Page Description Only (No Duplicate Heading) */}
@@ -241,6 +243,9 @@ export default function EmployeeManagement() {
                           <span className="font-medium text-gray-900">
                             {emp.employeeId}
                           </span>
+                          <span className="font-medium text-amber-500">
+                            {emp.employeeDetails.name}
+                          </span>
                           <span className="text-sm text-gray-500">
                             {emp.email}
                           </span>
@@ -283,7 +288,7 @@ export default function EmployeeManagement() {
                         <div className="flex justify-end gap-3">
                           <button
                             onClick={() => handleViewDetails(emp.employeeId)}
-                            className="px-2.5 py-1 text-xs rounded-lg bg-gray-100 hover:bg-gray-200 transition"
+                            className="px-3.5 py-1 text-xs border cursor-pointer rounded-lg bg-gray-100 hover:bg-gray-200 transition"
                           >
                             View
                           </button>
@@ -293,7 +298,7 @@ export default function EmployeeManagement() {
                               onClick={() =>
                                 handleToggleActive(emp.employeeId, emp.isActive)
                               }
-                              className={`px-2.5 py-1 text-xs rounded-lg font-medium transition ${
+                              className={`px-3.5 py-1 text-xs border cursor-pointer rounded-lg font-medium transition ${
                                 emp.isActive
                                   ? "bg-red-50 text-red-600 hover:bg-red-100"
                                   : "bg-green-50 text-green-600 hover:bg-green-100"

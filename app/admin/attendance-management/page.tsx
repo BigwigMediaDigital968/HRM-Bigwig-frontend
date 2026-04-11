@@ -251,7 +251,7 @@ export default function AdminAttendancePage() {
   /* ============= Render ============= */
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-8">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -277,28 +277,32 @@ export default function AdminAttendancePage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-full sm:w-fit overflow-x-auto no-scrollbar ">
         {(
           [
             {
               id: "records",
-              label: "All Records",
+              label: "All",
+              fullLabel: "All Records",
               icon: <Calendar className="w-3.5 h-3.5" />,
             },
             {
               id: "pending",
-              label: "Pending Approvals",
+              label: "Pending",
+              fullLabel: "Pending Approvals",
               icon: <AlertCircle className="w-3.5 h-3.5" />,
               badge: pendingCount,
             },
             {
               id: "summary",
-              label: "Monthly Summary",
+              label: "Summary",
+              fullLabel: "Monthly Summary",
               icon: <Users className="w-3.5 h-3.5" />,
             },
           ] as {
             id: ActiveTab;
             label: string;
+            fullLabel?: string
             icon: React.ReactNode;
             badge?: number;
           }[]
@@ -313,9 +317,12 @@ export default function AdminAttendancePage() {
             }`}
           >
             {tab.icon}
-            {tab.label}
+            <span className="hidden xs:inline">
+              {tab?.fullLabel || tab.label}
+            </span>
+            <span className="xs:hidden">{tab.label}</span>
             {tab.badge !== undefined && tab.badge > 0 && (
-              <span className="ml-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+              <span className="ml-1 bg-red-500 text-white text-[10px] w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center">
                 {tab.badge}
               </span>
             )}
@@ -325,60 +332,62 @@ export default function AdminAttendancePage() {
 
       {/* Filters (records tab only) */}
       {activeTab === "records" && (
-        <div className="bg-white rounded-2xl border shadow-sm p-4">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[180px]">
-              <label className="text-xs text-gray-400 mb-1 block">
-                Employee ID
-              </label>
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                <input
-                  type="text"
-                  value={searchEmpId}
-                  onChange={(e) => setSearchEmpId(e.target.value)}
-                  placeholder="Search by Employee ID..."
-                  className="w-full pl-8 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block">Date</label>
-              <input
-                type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer mb-0.5">
-              <input
-                type="checkbox"
-                checked={lateOnly}
-                onChange={(e) => setLateOnly(e.target.checked)}
-                className="rounded"
-              />
-              Late Only
-            </label>
-
-            <button
-              onClick={applyFilters}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
-            >
-              <Filter className="w-3.5 h-3.5" />
-              Apply
-            </button>
-            <button
-              onClick={resetFilters}
-              className="text-sm text-gray-400 hover:text-gray-600 px-2 py-2"
-            >
-              Reset
-            </button>
+    <div className="bg-white rounded-2xl border shadow-sm p-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-end gap-4">
+        <div className="flex-1 min-w-[140px]">
+          <label className="text-xs text-gray-400 mb-1 block">Employee ID</label>
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+            <input
+              type="text"
+              value={searchEmpId}
+              onChange={(e) => setSearchEmpId(e.target.value)}
+              placeholder="Search ID..."
+              className="w-full pl-8 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
         </div>
-      )}
+
+        <div className="min-w-[140px]">
+          <label className="text-xs text-gray-400 mb-1 block">Date</label>
+          <input
+            type="date"
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div className="flex items-center gap-4 lg:mb-2">
+          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={lateOnly}
+              onChange={(e) => setLateOnly(e.target.checked)}
+              className="rounded"
+            />
+            Late Only
+          </label>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={applyFilters}
+            className="cursor-pointer flex-1 lg:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
+          >
+            <Filter className="w-3.5 h-3.5" />
+            Apply
+          </button>
+          <button
+            onClick={resetFilters}
+            className="cursor-pointer text-sm text-gray-400 hover:text-gray-600 px-2 py-2"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
 
       {/* Monthly Summary Tab */}
       {activeTab === "summary" && (

@@ -103,18 +103,18 @@ export default function AdminLeaveManagement() {
   if (loading) return <div>Loading leave requests...</div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-3 sm:p-4 md:p-6 mt-5 md:mt-8 lg:mt-10">
       {/* ================= TABLE ================= */}
 
-      <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border overflow-x-auto no-scrollbar ">
         <table className="w-full text-left">
-          <thead className="bg-gray-50 border-b">
+          <thead className="bg-gray-100 rounded-xl border-b">
             <tr>
-              <th className="px-6 py-4 text-sm font-semibold">Employee</th>
-              <th className="px-6 py-4 text-sm font-semibold">Dates</th>
-              <th className="px-6 py-4 text-sm font-semibold">Days</th>
-              <th className="px-6 py-4 text-sm font-semibold">Status</th>
-              <th className="px-6 py-4 text-sm font-semibold text-right">
+              <th className="px-4 py-3  sm:px-6 sm:py-4 text-sm font-semibold">Employee</th>
+              <th className="px-4 py-3  sm:px-6 sm:py-4 text-sm font-semibold">Dates</th>
+              <th className="px-4 py-3  sm:px-6 sm:py-4 text-sm font-semibold">Days</th>
+              <th className="px-4 py-3  sm:px-6 sm:py-4 text-sm font-semibold">Status</th>
+              <th className="px-4 py-3  sm:px-6 sm:py-4 text-sm font-semibold text-right">
                 Actions
               </th>
             </tr>
@@ -123,22 +123,22 @@ export default function AdminLeaveManagement() {
           <tbody className="divide-y">
             {leaves.map((leave) => (
               <tr key={leave._id} className="hover:bg-gray-50">
-                <td className="px-6 py-4">
+                <td className="px-4 py-3  sm:px-6 sm:py-4">
                   <p className="font-medium">{leave.employee?.employeeId}</p>
                   <p className="text-sm text-gray-500">
                     {leave.employee?.email}
                   </p>
                 </td>
 
-                <td className="px-6 py-4 text-sm">
+                <td className="px-4 py-3  sm:px-6 sm:py-4 text-sm">
                   {new Date(leave.fromDate).toDateString()} <br />
                   to <br />
                   {new Date(leave.toDate).toDateString()}
                 </td>
 
-                <td className="px-6 py-4 font-medium">{leave.totalDays}</td>
+                <td className="px-4 py-3  sm:px-6 sm:py-4 font-medium">{leave.totalDays}</td>
 
-                <td className="px-6 py-4">
+                <td className="px-4 py-3  sm:px-6 sm:py-4">
                   <StatusBadge status={leave.status} />
 
                   {leave.cancellationStatus === "REQUESTED" && (
@@ -148,7 +148,7 @@ export default function AdminLeaveManagement() {
                   )}
                 </td>
 
-                <td className="px-6 py-4 text-right space-x-2">
+                <td className="px-4 py-3  sm:px-6 sm:py-4 text-right space-x-2">
                   {/* Approve / Reject */}
                   {leave.status === "PENDING" && (
                     <button

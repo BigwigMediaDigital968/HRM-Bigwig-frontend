@@ -49,7 +49,7 @@ export default function AdminDashboard() {
   const totalEmployees = employees.filter((e) => e.role === "EMPLOYEE").length;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <div className="max-w-7xl mx-auto space-y-8 p-4 sm:p-6 lg:p-8">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="card flex items-center space-x-4">
           <div className="p-3 bg-blue-100 text-blue-600 rounded-full">
@@ -57,7 +57,7 @@ export default function AdminDashboard() {
           </div>
           <div>
             <p className="text-sm text-gray-500">Total Employees</p>
-            <p className="text-2xl font-bold">{totalEmployees}</p>
+            <p className="text-xl sm:text-2xl font-bold">{totalEmployees}</p>
           </div>
         </div>
       </div>

@@ -184,7 +184,7 @@ export default function EmployeeManagement() {
   console.log(employees);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-4">
+    <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4">
       {/* Page Description Only (No Duplicate Heading) */}
       <div className="mb-5">
         <p className="text-sm text-gray-500">
@@ -195,7 +195,7 @@ export default function EmployeeManagement() {
       {/* Main Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* ================= LEFT: EMPLOYEE DIRECTORY ================= */}
-        <div className="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div className="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-gray-200 p-3 sm:p-4 md:p-6">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-semibold text-gray-900">
               Employee Directory
@@ -210,7 +210,7 @@ export default function EmployeeManagement() {
               Loading employees...
             </div>
           ) : (
-            <div className="rounded-xl border border-gray-100">
+            <div className="rounded-xl border border-gray-100 overflow-x-auto no-scrollbar">
               <table className="w-full text-left">
                 <thead className="bg-gray-50">
                   <tr>
@@ -318,7 +318,7 @@ export default function EmployeeManagement() {
         </div>
 
         {/* ================= RIGHT: ADD EMPLOYEE CARD ================= */}
-        <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-200 p-6 h-fit">
+        <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-200 p-3 sm:p-4 md:p-6 h-fit">
           <h3 className="text-lg font-semibold text-gray-900 mb-6">
             Add New Employee
           </h3>

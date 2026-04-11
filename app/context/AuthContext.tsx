@@ -8,48 +8,6 @@ import { toast } from "react-toastify";
 
 export type UserRole = "ADMIN" | "EMPLOYEE";
 
-const DEV_MODE = process.env.NODE_ENV === "development";
-
-const DUMMY_ADMIN: User = {
-  id: "admin_001",
-  name: "Admin User",
-  email: "admin@test.com",
-  role: "ADMIN",
-  verificationStatus: "APPROVED",
-  isActive: true,
-  profile: {
-    name: "Admin User",
-    email: "admin@test.com",
-    phone: "9999999999",
-  },
-};
-
-const DUMMY_EMPLOYEE: User = {
-  id: "emp_001",
-  name: "Employee User",
-  email: "employee@test.com",
-  role: "EMPLOYEE",
-  verificationStatus: "PENDING",
-  isActive: true,
-  profile: {
-    name: "Employee User",
-    email: "employee@test.com",
-    phone: "8888888888",
-    photo: {
-      url: "https://via.placeholder.com/150",
-      publicId: "dummy_photo",
-    },
-    aadhaar: {
-      url: "https://via.placeholder.com/150",
-      publicId: "dummy_aadhaar",
-    },
-    pan: {
-      url: "https://via.placeholder.com/150",
-      publicId: "dummy_pan",
-    },
-  },
-};
-
 export interface UploadedDoc {
   url: string;
   publicId: string;
@@ -96,44 +54,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   /* ---------- Restore session ---------- */
   useEffect(() => {
-  const restoreSession = () => {
-    const path = window.location.pathname;
+    const restoreSession = () => {
+      const path = window.location.pathname;
 
-    // ✅ DEV MODE AUTO LOGIN
-    if (DEV_MODE) {
-      const mockUser =
-        path.startsWith("/admin") ? DUMMY_ADMIN : DUMMY_EMPLOYEE;
+      if (path.startsWith("/admin")) {
+        const storedUser = localStorage.getItem("hrm_admin_user");
+        const storedToken = localStorage.getItem("hrm_admin_token");
 
-      setUser(mockUser);
-      setToken("dummy-token");
+        if (storedUser && storedToken) {
+          setUser(JSON.parse(storedUser));
+          setToken(storedToken);
+        }
+      } else if (path.startsWith("/employee")) {
+        const storedUser = localStorage.getItem("hrm_employee_user");
+        const storedToken = localStorage.getItem("hrm_employee_token");
+
+        if (storedUser && storedToken) {
+          setUser(JSON.parse(storedUser));
+          setToken(storedToken);
+        }
+      }
+
       setLoading(false);
-      return;
-    }
+    };
 
-    // ================= REAL LOGIC =================
-    if (path.startsWith("/admin")) {
-      const storedUser = localStorage.getItem("hrm_admin_user");
-      const storedToken = localStorage.getItem("hrm_admin_token");
-
-      if (storedUser && storedToken) {
-        setUser(JSON.parse(storedUser));
-        setToken(storedToken);
-      }
-    } else if (path.startsWith("/employee")) {
-      const storedUser = localStorage.getItem("hrm_employee_user");
-      const storedToken = localStorage.getItem("hrm_employee_token");
-
-      if (storedUser && storedToken) {
-        setUser(JSON.parse(storedUser));
-        setToken(storedToken);
-      }
-    }
-
-    setLoading(false);
-  };
-
-  restoreSession();
-}, []);
+    restoreSession();
+  }, []);
 
   /* ---------- Fetch employee profile safely ---------- */
   const fetchEmployeeProfile = async (authToken: string, baseUser: User) => {
@@ -178,19 +124,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   /* ---------- Login ---------- */
   const login = async (id: string, pass: string, role: UserRole) => {
     try {
-      const mockUser = role === "ADMIN" ? DUMMY_ADMIN : DUMMY_EMPLOYEE;
-
-      setUser(mockUser);
-      setToken("dummy-token");
-
-      toast.success(`Welcome ${mockUser.name}!`);
-
-      router.push(
-        role === "ADMIN" ? "/admin/dashboard" : "/employee/dashboard",
-      );
-
-      return true;
-      
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`,
         {

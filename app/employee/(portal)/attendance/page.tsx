@@ -162,6 +162,7 @@ export default function AttendancePage() {
         ]);
 
         if (summaryData.success) setSummary(summaryData.data);
+        console.log(summaryData.data);
         if (recordsData.success) setRecords(recordsData.data);
         if (silent) toast.success("Attendance refreshed!");
       } catch {
@@ -345,11 +346,10 @@ export default function AttendancePage() {
                   return (
                     <React.Fragment key={record._id}>
                       <tr
-                        className={`hover:bg-gray-50/70 transition-colors ${
-                          record.markedLate
-                            ? "cursor-pointer"
-                            : "cursor-default"
-                        }`}
+                        className={`hover:bg-gray-50/70 transition-colors ${record.markedLate
+                          ? "cursor-pointer"
+                          : "cursor-default"
+                          }`}
                         onClick={() => {
                           if (record.markedLate)
                             setExpandedRow(isExpanded ? null : record._id);
@@ -386,16 +386,14 @@ export default function AttendancePage() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-1.5">
                             <Timer
-                              className={`w-3.5 h-3.5 ${
-                                isActive
-                                  ? "text-blue-400 animate-pulse"
-                                  : "text-gray-300"
-                              }`}
+                              className={`w-3.5 h-3.5 ${isActive
+                                ? "text-blue-400 animate-pulse"
+                                : "text-gray-300"
+                                }`}
                             />
                             <span
-                              className={`text-sm font-medium tabular-nums ${
-                                isActive ? "text-blue-600" : "text-gray-600"
-                              }`}
+                              className={`text-sm font-medium tabular-nums ${isActive ? "text-blue-600" : "text-gray-600"
+                                }`}
                             >
                               {workHrs}
                             </span>
@@ -422,9 +420,8 @@ export default function AttendancePage() {
                         <td className="px-6 py-4">
                           {record.markedLate ? (
                             <span
-                              className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                                DELAY_STYLES[record.delayStatus ?? "PENDING"]
-                              }`}
+                              className={`px-2.5 py-1 rounded-full text-xs font-semibold ${DELAY_STYLES[record.delayStatus ?? "PENDING"]
+                                }`}
                             >
                               Late ·{" "}
                               {DELAY_LABEL[record.delayStatus ?? "PENDING"]}
@@ -541,12 +538,10 @@ export default function AttendancePage() {
               <strong className="text-gray-700">{summary.wfoDays ?? 0}</strong>{" "}
               days
             </span>
-            {(summary.lateDays ?? 0) > 0 && (
-              <span className="text-amber-500">
-                Late: <strong>{summary.lateDays}</strong> day
-                {(summary.lateDays ?? 0) > 1 ? "s" : ""}
-              </span>
-            )}
+            <span className="text-amber-500">
+              Late: <strong>{summary?.lateDays ?? 0}</strong> day
+              {(summary?.lateDays ?? 0) > 1 ? "s" : ""}
+            </span>
           </div>
         )}
       </div>

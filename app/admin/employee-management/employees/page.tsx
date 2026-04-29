@@ -244,7 +244,7 @@ export default function EmployeeManagement() {
                             {emp.employeeId}
                           </span>
                           <span className="font-medium text-amber-500">
-                            {emp.employeeDetails.name}
+                            {emp.employeeDetails?.name}
                           </span>
                           <span className="text-sm text-gray-500">
                             {emp.email}
@@ -260,11 +260,10 @@ export default function EmployeeManagement() {
 
                       <td className="px-4 py-3">
                         <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            emp.isActive
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${emp.isActive
                               ? "bg-green-100 text-green-700"
                               : "bg-red-100 text-red-700"
-                          }`}
+                            }`}
                         >
                           {emp.isActive ? "Active" : "Inactive"}
                         </span>
@@ -272,13 +271,12 @@ export default function EmployeeManagement() {
 
                       <td className="px-4 py-3">
                         <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            emp.verificationStatus === "APPROVED"
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${emp.verificationStatus === "APPROVED"
                               ? "bg-green-100 text-green-700"
                               : emp.verificationStatus === "REJECTED"
                                 ? "bg-red-100 text-red-700"
                                 : "bg-yellow-100 text-yellow-700"
-                          }`}
+                            }`}
                         >
                           {emp.verificationStatus || "PENDING"}
                         </span>
@@ -298,11 +296,10 @@ export default function EmployeeManagement() {
                               onClick={() =>
                                 handleToggleActive(emp.employeeId, emp.isActive)
                               }
-                              className={`px-3.5 py-1 text-xs border cursor-pointer rounded-lg font-medium transition ${
-                                emp.isActive
+                              className={`px-3.5 py-1 text-xs border cursor-pointer rounded-lg font-medium transition ${emp.isActive
                                   ? "bg-red-50 text-red-600 hover:bg-red-100"
                                   : "bg-green-50 text-green-600 hover:bg-green-100"
-                              }`}
+                                }`}
                             >
                               {emp.isActive ? "Deactivate" : "Activate"}
                             </button>
@@ -492,13 +489,12 @@ export default function EmployeeManagement() {
                   Current Status:
                 </span>
                 <span
-                  className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    selectedEmployee.verificationStatus === "APPROVED"
+                  className={`px-3 py-1 rounded-full text-xs font-semibold ${selectedEmployee.verificationStatus === "APPROVED"
                       ? "bg-green-100 text-green-700"
                       : selectedEmployee.verificationStatus === "REJECTED"
                         ? "bg-red-100 text-red-700"
                         : "bg-yellow-100 text-yellow-700"
-                  }`}
+                    }`}
                 >
                   {selectedEmployee.verificationStatus || "PENDING"}
                 </span>

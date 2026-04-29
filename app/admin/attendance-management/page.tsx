@@ -16,7 +16,7 @@ import {
   Home,
   AlertCircle,
 } from "lucide-react";
-import { useAuth } from "@/app/context/AuthContext";
+import { EmployeeProfile, useAuth } from "@/app/context/AuthContext";
 import { useRouter } from "next/navigation";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -47,6 +47,7 @@ interface AttendanceRecord {
 
 interface EmployeeSummary {
   employeeId: string;
+  employee: any;
   email: string;
   presentDays: number;
   absentDays: number;
@@ -172,6 +173,7 @@ export default function AdminAttendancePage() {
           { headers: { Authorization: `Bearer ${authToken}` } },
         );
         const data = await res.json();
+        console.log(data)
         if (data.success) setSummary(data.data);
       } catch (err) {
         console.error(err);
@@ -209,10 +211,10 @@ export default function AdminAttendancePage() {
           prev.map((r) =>
             r._id === attendanceId
               ? {
-                  ...r,
-                  delayStatus: status,
-                  adminRemarks: remarks[attendanceId] || "",
-                }
+                ...r,
+                delayStatus: status,
+                adminRemarks: remarks[attendanceId] || "",
+              }
               : r,
           ),
         );
@@ -310,11 +312,10 @@ export default function AdminAttendancePage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
-              activeTab === tab.id
-                ? "bg-white shadow-sm text-gray-900"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === tab.id
+              ? "bg-white shadow-sm text-gray-900"
+              : "text-gray-500 hover:text-gray-700"
+              }`}
           >
             {tab.icon}
             <span className="hidden xs:inline">
@@ -332,62 +333,62 @@ export default function AdminAttendancePage() {
 
       {/* Filters (records tab only) */}
       {activeTab === "records" && (
-    <div className="bg-white rounded-2xl border shadow-sm p-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-end gap-4">
-        <div className="flex-1 min-w-[140px]">
-          <label className="text-xs text-gray-400 mb-1 block">Employee ID</label>
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-            <input
-              type="text"
-              value={searchEmpId}
-              onChange={(e) => setSearchEmpId(e.target.value)}
-              placeholder="Search ID..."
-              className="w-full pl-8 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+        <div className="bg-white rounded-2xl border shadow-sm p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-end gap-4">
+            <div className="flex-1 min-w-[140px]">
+              <label className="text-xs text-gray-400 mb-1 block">Employee ID</label>
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                <input
+                  type="text"
+                  value={searchEmpId}
+                  onChange={(e) => setSearchEmpId(e.target.value)}
+                  placeholder="Search ID..."
+                  className="w-full pl-8 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="min-w-[140px]">
+              <label className="text-xs text-gray-400 mb-1 block">Date</label>
+              <input
+                type="date"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-4 lg:mb-2">
+              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={lateOnly}
+                  onChange={(e) => setLateOnly(e.target.checked)}
+                  className="rounded"
+                />
+                Late Only
+              </label>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={applyFilters}
+                className="cursor-pointer flex-1 lg:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
+              >
+                <Filter className="w-3.5 h-3.5" />
+                Apply
+              </button>
+              <button
+                onClick={resetFilters}
+                className="cursor-pointer text-sm text-gray-400 hover:text-gray-600 px-2 py-2"
+              >
+                Reset
+              </button>
+            </div>
           </div>
         </div>
-
-        <div className="min-w-[140px]">
-          <label className="text-xs text-gray-400 mb-1 block">Date</label>
-          <input
-            type="date"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div className="flex items-center gap-4 lg:mb-2">
-          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={lateOnly}
-              onChange={(e) => setLateOnly(e.target.checked)}
-              className="rounded"
-            />
-            Late Only
-          </label>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            onClick={applyFilters}
-            className="cursor-pointer flex-1 lg:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
-          >
-            <Filter className="w-3.5 h-3.5" />
-            Apply
-          </button>
-          <button
-            onClick={resetFilters}
-            className="cursor-pointer text-sm text-gray-400 hover:text-gray-600 px-2 py-2"
-          >
-            Reset
-          </button>
-        </div>
-      </div>
-    </div>
-  )}
+      )}
 
       {/* Monthly Summary Tab */}
       {activeTab === "summary" && (
@@ -408,12 +409,11 @@ export default function AdminAttendancePage() {
           <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 text-xs uppercase text-gray-400 tracking-wide">
+                <thead className="bg-gray-50 text-xs capitalize text-gray-400 tracking-wide">
                   <tr>
                     <th className="px-6 py-3">Employee ID</th>
                     <th className="px-6 py-3">Email</th>
-                    <th className="px-6 py-3 text-center">Present</th>
-                    <th className="px-6 py-3 text-center">Absent</th>
+                    <th className="px-6 py-3 text-center">Present/Absent</th>
                     <th className="px-6 py-3 text-center">Late</th>
                     <th className="px-6 py-3 text-center">WFH</th>
                     <th className="px-6 py-3 text-center">WFO</th>
@@ -448,17 +448,16 @@ export default function AdminAttendancePage() {
                       return (
                         <tr key={emp.employeeId} className="hover:bg-gray-50">
                           <td className="px-6 py-4 font-medium text-gray-800">
-                            {emp.employeeId}
+                            <p className="text-sm">{emp.employee.name}</p>
+                            <p className="text-xs text-gray-500">{emp.employee.employeeId}</p>
                           </td>
                           <td className="px-6 py-4 text-gray-500 text-xs">
-                            {emp.email}
+                            {emp.employee.email}
                           </td>
                           <td className="px-6 py-4 text-center">
                             <span className="text-green-600 font-semibold">
                               {emp.presentDays}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-center">
+                            </span> {"/ "}
                             <span className="text-red-500 font-semibold">
                               {emp.absentDays}
                             </span>
@@ -478,13 +477,12 @@ export default function AdminAttendancePage() {
                             <div className="flex items-center justify-center gap-2">
                               <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                                 <div
-                                  className={`h-full rounded-full ${
-                                    pct >= 80
-                                      ? "bg-green-500"
-                                      : pct >= 60
-                                        ? "bg-yellow-500"
-                                        : "bg-red-500"
-                                  }`}
+                                  className={`h-full rounded-full ${pct >= 80
+                                    ? "bg-green-500"
+                                    : pct >= 60
+                                      ? "bg-yellow-500"
+                                      : "bg-red-500"
+                                    }`}
                                   style={{ width: `${pct}%` }}
                                 />
                               </div>
@@ -557,11 +555,10 @@ export default function AdminAttendancePage() {
                     <React.Fragment key={record._id}>
                       <tr
                         key={record._id}
-                        className={`hover:bg-gray-50 transition ${
-                          record.markedLate && record.delayStatus === "PENDING"
-                            ? "bg-yellow-50/30"
-                            : ""
-                        }`}
+                        className={`hover:bg-gray-50 transition ${record.markedLate && record.delayStatus === "PENDING"
+                          ? "bg-yellow-50/30"
+                          : ""
+                          }`}
                       >
                         <td className="px-6 py-4">
                           <p className="font-medium text-gray-800 text-sm">
@@ -597,10 +594,9 @@ export default function AdminAttendancePage() {
                         <td className="px-6 py-4">
                           {record.markedLate ? (
                             <span
-                              className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                                DELAY_BADGE[record.delayStatus ?? "PENDING"]
-                                  .className
-                              }`}
+                              className={`px-2.5 py-1 rounded-full text-xs font-medium ${DELAY_BADGE[record.delayStatus ?? "PENDING"]
+                                .className
+                                }`}
                             >
                               Late ·{" "}
                               {

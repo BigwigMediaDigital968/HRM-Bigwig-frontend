@@ -41,6 +41,7 @@ interface AttendanceRecord {
 interface AttendanceSummary {
   month: string;
   totalDays: number;
+  totalWorkingDays: number;
   presentDays: number;
   absentDays: number;
   lateDays?: number;
@@ -107,14 +108,16 @@ function SummaryCard({
   valueColor = "text-gray-900",
 }: SummaryCardProps) {
   return (
-    <div className="bg-white rounded-2xl border shadow-sm p-4 hover:shadow-md transition-shadow cursor-default">
+    <div className="bg-white flex gap-2 items-center md:block rounded-2xl border shadow-sm p-2 sm:p-4 hover:shadow-md transition-shadow cursor-default">
       <div
-        className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${iconBg}`}
+        className={`w-12 md:w-9 aspect-square rounded-xl flex items-center justify-center mb-0 md:mb-3 ${iconBg}`}
       >
         {icon}
       </div>
-      <p className={`text-2xl font-bold tabular-nums ${valueColor}`}>{value}</p>
-      <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+      <div className="flex flex-col item-end">
+        <p className={`text-sm md:text-2xl font-bold tabular-nums ${valueColor}`}>{value}</p>
+        <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+      </div>
     </div>
   );
 }
@@ -251,7 +254,7 @@ export default function AttendancePage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           <SummaryCard
             label="Working Days"
-            value={summary.totalDays}
+            value={summary.totalWorkingDays}
             icon={<CalendarDays className="w-4 h-4 text-blue-600" />}
             iconBg="bg-blue-50"
           />
@@ -436,11 +439,11 @@ export default function AttendancePage() {
                         {/* expand icon */}
                         <td className="px-4 py-4">
                           {record.markedLate && (
-                            <div className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-100 transition cursor-pointer">
+                            <div className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-200 transition cursor-pointer">
                               {isExpanded ? (
-                                <ChevronUp className="w-4 h-4 text-gray-400" />
+                                <ChevronUp className="w-4 h-4 text-gray-600" />
                               ) : (
-                                <ChevronDown className="w-4 h-4 text-gray-400" />
+                                <ChevronDown className="w-4 h-4 text-gray-600" />
                               )}
                             </div>
                           )}

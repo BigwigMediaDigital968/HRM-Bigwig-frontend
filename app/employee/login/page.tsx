@@ -42,7 +42,7 @@ export default function EmployeeLogin() {
               value={id}
               onChange={(e) => setId(e.target.value)}
               className="input-field"
-              placeholder="Enter Employee ID"
+              placeholder="Enter Employee ID or Email"
               required
             />
           </div>

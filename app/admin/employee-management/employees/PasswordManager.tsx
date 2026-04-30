@@ -16,8 +16,8 @@ const PasswordManager: React.FC<PasswordManagerProps> = ({ selectedEmployee, onS
 
     // Generate random password (Length 7-8)
     const generatePassword = (): void => {
-        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-        const length = Math.floor(Math.random() * 2) + 7; // Result is 7 or 8
+        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@$&";
+        const length = Math.floor(Math.random() * 2) + 10; // Result is 10
         let retVal = "";
         for (let i = 0; i < length; ++i) {
             retVal += charset.charAt(Math.floor(Math.random() * charset.length));

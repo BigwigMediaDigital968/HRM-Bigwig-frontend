@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth, UserRole } from "@/app/context/AuthContext";
 import { PlusCircle } from "lucide-react";
+import PasswordManager from "./PasswordManager";
 
 export default function EmployeeManagement() {
   const { token } = useAuth();
@@ -18,6 +19,8 @@ export default function EmployeeManagement() {
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   /* ================= FETCH EMPLOYEES ================= */
 
@@ -181,6 +184,34 @@ export default function EmployeeManagement() {
     }
   };
 
+  const handleUpdatePassword = async (newPassword: string) => {
+    try {
+      setPasswordLoading(true);
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/employee/${selectedEmployee.employeeId}/update-password`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ password: newPassword }),
+        },
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      await fetchEmployees();
+      setModalOpen(false);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   console.log(employees);
 
   return (
@@ -261,8 +292,8 @@ export default function EmployeeManagement() {
                       <td className="px-4 py-3">
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-semibold ${emp.isActive
-                              ? "bg-green-100 text-green-700"
-                              : "bg-red-100 text-red-700"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
                             }`}
                         >
                           {emp.isActive ? "Active" : "Inactive"}
@@ -272,10 +303,10 @@ export default function EmployeeManagement() {
                       <td className="px-4 py-3">
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-semibold ${emp.verificationStatus === "APPROVED"
-                              ? "bg-green-100 text-green-700"
-                              : emp.verificationStatus === "REJECTED"
-                                ? "bg-red-100 text-red-700"
-                                : "bg-yellow-100 text-yellow-700"
+                            ? "bg-green-100 text-green-700"
+                            : emp.verificationStatus === "REJECTED"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-yellow-100 text-yellow-700"
                             }`}
                         >
                           {emp.verificationStatus || "PENDING"}
@@ -297,8 +328,8 @@ export default function EmployeeManagement() {
                                 handleToggleActive(emp.employeeId, emp.isActive)
                               }
                               className={`px-3.5 py-1 text-xs border cursor-pointer rounded-lg font-medium transition ${emp.isActive
-                                  ? "bg-red-50 text-red-600 hover:bg-red-100"
-                                  : "bg-green-50 text-green-600 hover:bg-green-100"
+                                ? "bg-red-50 text-red-600 hover:bg-red-100"
+                                : "bg-green-50 text-green-600 hover:bg-green-100"
                                 }`}
                             >
                               {emp.isActive ? "Deactivate" : "Activate"}
@@ -369,8 +400,8 @@ export default function EmployeeManagement() {
         </div>
       </div>
       {modalOpen && selectedEmployee && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white w-full max-w-3xl rounded-2xl shadow-xl p-8 relative animate-fadeIn">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 overflow-y-scroll">
+          <div className="bg-white w-full max-w-3xl mx-auto rounded-2xl shadow-xl p-8 relative animate-fadeIn">
             {/* Header */}
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-semibold text-gray-900">
@@ -414,6 +445,13 @@ export default function EmployeeManagement() {
                   {selectedEmployee.verificationStatus || "PENDING"}
                 </p>
               </div>
+            </div>
+            <div className="w-full">
+              <PasswordManager
+                selectedEmployee={selectedEmployee}
+                onSave={handleUpdatePassword}
+                isLoading={passwordLoading}
+              />
             </div>
 
             {/* Divider */}
@@ -490,10 +528,10 @@ export default function EmployeeManagement() {
                 </span>
                 <span
                   className={`px-3 py-1 rounded-full text-xs font-semibold ${selectedEmployee.verificationStatus === "APPROVED"
-                      ? "bg-green-100 text-green-700"
-                      : selectedEmployee.verificationStatus === "REJECTED"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-yellow-100 text-yellow-700"
+                    ? "bg-green-100 text-green-700"
+                    : selectedEmployee.verificationStatus === "REJECTED"
+                      ? "bg-red-100 text-red-700"
+                      : "bg-yellow-100 text-yellow-700"
                     }`}
                 >
                   {selectedEmployee.verificationStatus || "PENDING"}

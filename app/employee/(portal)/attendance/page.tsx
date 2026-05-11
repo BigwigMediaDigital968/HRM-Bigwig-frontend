@@ -163,6 +163,7 @@ export default function AttendancePage() {
           summaryRes.json(),
           recordsRes.json(),
         ]);
+        console.log(summaryData, recordsData);
 
         if (summaryData.success) setSummary(summaryData.data);
         console.log(summaryData.data);

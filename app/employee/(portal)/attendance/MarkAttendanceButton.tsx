@@ -293,11 +293,10 @@ export default function MarkAttendanceButton({
       <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
         {/* status accent bar */}
         <div
-          className={`h-1 w-full ${
-            checkoutDone
-              ? "bg-gradient-to-r from-slate-300 to-slate-400"
-              : "bg-gradient-to-r from-emerald-400 to-teal-500"
-          }`}
+          className={`h-1 w-full ${checkoutDone
+            ? "bg-gradient-to-r from-slate-300 to-slate-400"
+            : "bg-gradient-to-r from-emerald-400 to-teal-500"
+            }`}
         />
 
         <div className="p-5 space-y-4">
@@ -305,14 +304,12 @@ export default function MarkAttendanceButton({
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                  checkoutDone ? "bg-slate-100" : "bg-emerald-50"
-                }`}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${checkoutDone ? "bg-slate-100" : "bg-emerald-50"
+                  }`}
               >
                 <CheckCircle2
-                  className={`w-5 h-5 ${
-                    checkoutDone ? "text-slate-400" : "text-emerald-600"
-                  }`}
+                  className={`w-5 h-5 ${checkoutDone ? "text-slate-400" : "text-emerald-600"
+                    }`}
                 />
               </div>
               <div>
@@ -331,9 +328,8 @@ export default function MarkAttendanceButton({
                   <span className="text-gray-200 text-xs">·</span>
                   {todayRecord?.markedLate ? (
                     <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        DELAY_BADGE[todayRecord.delayStatus ?? "PENDING"].cls
-                      }`}
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${DELAY_BADGE[todayRecord.delayStatus ?? "PENDING"].cls
+                        }`}
                     >
                       Late —{" "}
                       {DELAY_BADGE[todayRecord.delayStatus ?? "PENDING"].label}
@@ -378,28 +374,24 @@ export default function MarkAttendanceButton({
             </div>
 
             <div
-              className={`rounded-xl p-3 space-y-1 ${
-                checkoutDone ? "bg-gray-50" : "bg-blue-50"
-              }`}
+              className={`rounded-xl p-3 space-y-1 ${checkoutDone ? "bg-gray-50" : "bg-blue-50"
+                }`}
             >
               <div className="flex items-center gap-1">
                 <Timer
-                  className={`w-3 h-3 ${
-                    checkoutDone ? "text-gray-400" : "text-blue-500"
-                  }`}
+                  className={`w-3 h-3 ${checkoutDone ? "text-gray-400" : "text-blue-500"
+                    }`}
                 />
                 <p
-                  className={`text-xs ${
-                    checkoutDone ? "text-gray-400" : "text-blue-500"
-                  }`}
+                  className={`text-xs ${checkoutDone ? "text-gray-400" : "text-blue-500"
+                    }`}
                 >
                   {checkoutDone ? "Total" : "Working"}
                 </p>
               </div>
               <p
-                className={`text-sm font-bold tabular-nums ${
-                  checkoutDone ? "text-gray-800" : "text-blue-700"
-                }`}
+                className={`text-sm font-bold tabular-nums ${checkoutDone ? "text-gray-800" : "text-blue-700"
+                  }`}
               >
                 {workingTime}
               </p>
@@ -407,7 +399,7 @@ export default function MarkAttendanceButton({
           </div>
 
           {/* date label */}
-          <p className="text-xs text-gray-300 text-center">
+          <p className="text-xs text-gray-500 text-center">
             {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-IN", {
               weekday: "long",
               day: "2-digit",
@@ -448,7 +440,7 @@ export default function MarkAttendanceButton({
           {/* disabled check-in indicator */}
           <button
             disabled
-            className="w-full py-2 rounded-xl text-xs font-medium bg-gray-50 text-gray-300 cursor-not-allowed border border-dashed border-gray-200 select-none"
+            className="w-full py-2 rounded-xl text-xs font-medium bg-gray-50 text-gray-500 cursor-not-allowed border border-dashed border-gray-200 select-none"
           >
             ✓ Attendance already recorded for this day
           </button>
@@ -521,22 +513,20 @@ export default function MarkAttendanceButton({
             <div className="flex rounded-xl border overflow-hidden bg-gray-50 text-sm h-[42px]">
               <button
                 onClick={() => setMode("WFO")}
-                className={`flex-1 flex items-center justify-center gap-1.5 transition-all cursor-pointer font-medium ${
-                  mode === "WFO"
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                }`}
+                className={`flex-1 flex items-center justify-center gap-1.5 transition-all cursor-pointer font-medium ${mode === "WFO"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                  }`}
               >
                 <Wifi className="w-3.5 h-3.5" />
                 WFO
               </button>
               <button
                 onClick={() => setMode("WFH")}
-                className={`flex-1 flex items-center justify-center gap-1.5 transition-all cursor-pointer font-medium ${
-                  mode === "WFH"
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                }`}
+                className={`flex-1 flex items-center justify-center gap-1.5 transition-all cursor-pointer font-medium ${mode === "WFH"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                  }`}
               >
                 <Home className="w-3.5 h-3.5" />
                 WFH
@@ -578,13 +568,12 @@ export default function MarkAttendanceButton({
         <button
           onClick={handleMark}
           disabled={loading || alreadyMarked}
-          className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all ${
-            alreadyMarked
-              ? "bg-gray-100 text-gray-300 cursor-not-allowed"
-              : loading
-                ? "bg-blue-400 text-white cursor-wait"
-                : "bg-blue-600 text-white hover:bg-blue-700 active:scale-[0.98] cursor-pointer shadow-sm shadow-blue-200"
-          }`}
+          className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all ${alreadyMarked
+            ? "bg-gray-100 text-gray-300 cursor-not-allowed"
+            : loading
+              ? "bg-blue-400 text-white cursor-wait"
+              : "bg-blue-600 text-white hover:bg-blue-700 active:scale-[0.98] cursor-pointer shadow-sm shadow-blue-200"
+            }`}
         >
           {loading ? (
             <>

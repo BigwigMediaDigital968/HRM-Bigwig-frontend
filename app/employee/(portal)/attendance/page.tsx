@@ -41,6 +41,7 @@ interface AttendanceRecord {
 interface AttendanceSummary {
   month: string;
   totalDays: number;
+  totalWorkingDays: number;
   presentDays: number;
   absentDays: number;
   lateDays?: number;
@@ -107,14 +108,16 @@ function SummaryCard({
   valueColor = "text-gray-900",
 }: SummaryCardProps) {
   return (
-    <div className="bg-white rounded-2xl border shadow-sm p-4 hover:shadow-md transition-shadow cursor-default">
+    <div className="bg-white flex gap-2 items-center md:block rounded-2xl border shadow-sm p-2 sm:p-4 hover:shadow-md transition-shadow cursor-default">
       <div
-        className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${iconBg}`}
+        className={`w-12 md:w-9 aspect-square rounded-xl flex items-center justify-center mb-0 md:mb-3 ${iconBg}`}
       >
         {icon}
       </div>
-      <p className={`text-2xl font-bold tabular-nums ${valueColor}`}>{value}</p>
-      <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+      <div className="flex flex-col item-end">
+        <p className={`text-sm md:text-2xl font-bold tabular-nums ${valueColor}`}>{value}</p>
+        <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+      </div>
     </div>
   );
 }
@@ -160,8 +163,10 @@ export default function AttendancePage() {
           summaryRes.json(),
           recordsRes.json(),
         ]);
+        console.log(summaryData, recordsData);
 
         if (summaryData.success) setSummary(summaryData.data);
+        console.log(summaryData.data);
         if (recordsData.success) setRecords(recordsData.data);
         if (silent) toast.success("Attendance refreshed!");
       } catch {
@@ -250,7 +255,7 @@ export default function AttendancePage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           <SummaryCard
             label="Working Days"
-            value={summary.totalDays}
+            value={summary.totalWorkingDays}
             icon={<CalendarDays className="w-4 h-4 text-blue-600" />}
             iconBg="bg-blue-50"
           />
@@ -345,11 +350,10 @@ export default function AttendancePage() {
                   return (
                     <React.Fragment key={record._id}>
                       <tr
-                        className={`hover:bg-gray-50/70 transition-colors ${
-                          record.markedLate
-                            ? "cursor-pointer"
-                            : "cursor-default"
-                        }`}
+                        className={`hover:bg-gray-50/70 transition-colors ${record.markedLate
+                          ? "cursor-pointer"
+                          : "cursor-default"
+                          }`}
                         onClick={() => {
                           if (record.markedLate)
                             setExpandedRow(isExpanded ? null : record._id);
@@ -386,16 +390,14 @@ export default function AttendancePage() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-1.5">
                             <Timer
-                              className={`w-3.5 h-3.5 ${
-                                isActive
-                                  ? "text-blue-400 animate-pulse"
-                                  : "text-gray-300"
-                              }`}
+                              className={`w-3.5 h-3.5 ${isActive
+                                ? "text-blue-400 animate-pulse"
+                                : "text-gray-300"
+                                }`}
                             />
                             <span
-                              className={`text-sm font-medium tabular-nums ${
-                                isActive ? "text-blue-600" : "text-gray-600"
-                              }`}
+                              className={`text-sm font-medium tabular-nums ${isActive ? "text-blue-600" : "text-gray-600"
+                                }`}
                             >
                               {workHrs}
                             </span>
@@ -422,9 +424,8 @@ export default function AttendancePage() {
                         <td className="px-6 py-4">
                           {record.markedLate ? (
                             <span
-                              className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                                DELAY_STYLES[record.delayStatus ?? "PENDING"]
-                              }`}
+                              className={`px-2.5 py-1 rounded-full text-xs font-semibold ${DELAY_STYLES[record.delayStatus ?? "PENDING"]
+                                }`}
                             >
                               Late ·{" "}
                               {DELAY_LABEL[record.delayStatus ?? "PENDING"]}
@@ -439,11 +440,11 @@ export default function AttendancePage() {
                         {/* expand icon */}
                         <td className="px-4 py-4">
                           {record.markedLate && (
-                            <div className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-100 transition cursor-pointer">
+                            <div className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-200 transition cursor-pointer">
                               {isExpanded ? (
-                                <ChevronUp className="w-4 h-4 text-gray-400" />
+                                <ChevronUp className="w-4 h-4 text-gray-600" />
                               ) : (
-                                <ChevronDown className="w-4 h-4 text-gray-400" />
+                                <ChevronDown className="w-4 h-4 text-gray-600" />
                               )}
                             </div>
                           )}
@@ -541,12 +542,10 @@ export default function AttendancePage() {
               <strong className="text-gray-700">{summary.wfoDays ?? 0}</strong>{" "}
               days
             </span>
-            {(summary.lateDays ?? 0) > 0 && (
-              <span className="text-amber-500">
-                Late: <strong>{summary.lateDays}</strong> day
-                {(summary.lateDays ?? 0) > 1 ? "s" : ""}
-              </span>
-            )}
+            <span className="text-amber-500">
+              Late: <strong>{summary?.lateDays ?? 0}</strong> day
+              {(summary?.lateDays ?? 0) > 1 ? "s" : ""}
+            </span>
           </div>
         )}
       </div>

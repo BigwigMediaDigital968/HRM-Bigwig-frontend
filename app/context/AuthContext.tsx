@@ -17,9 +17,10 @@ export interface EmployeeProfile {
   name: string;
   email: string;
   phone: string;
-  photo?: UploadedDoc;
-  aadhaar?: UploadedDoc;
-  pan?: UploadedDoc;
+  photo?: UploadedDoc | null;
+  aadhaar?: UploadedDoc | null;
+  pan?: UploadedDoc | null;
+  employeeDetails?: Record<string, unknown>;
 }
 
 export interface User {
@@ -54,35 +55,58 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   /* ---------- Restore session ---------- */
   useEffect(() => {
-    const restoreSession = () => {
-      const path = window.location.pathname;
+    const restoreSession = async () => {
+      try {
+        const path = window.location.pathname;
 
-      if (path.startsWith("/admin")) {
-        const storedUser = localStorage.getItem("hrm_admin_user");
-        const storedToken = localStorage.getItem("hrm_admin_token");
+        let storedUser: string | null = null;
+        let storedToken: string | null = null;
+
+        if (path.startsWith("/admin")) {
+          storedUser = localStorage.getItem("hrm_admin_user");
+          storedToken = localStorage.getItem("hrm_admin_token");
+        } else if (path.startsWith("/employee")) {
+          storedUser = localStorage.getItem("hrm_employee_user");
+          storedToken = localStorage.getItem("hrm_employee_token");
+        }
 
         if (storedUser && storedToken) {
-          setUser(JSON.parse(storedUser));
-          setToken(storedToken);
-        }
-      } else if (path.startsWith("/employee")) {
-        const storedUser = localStorage.getItem("hrm_employee_user");
-        const storedToken = localStorage.getItem("hrm_employee_token");
+          const parsedUser: User = JSON.parse(storedUser);
 
-        if (storedUser && storedToken) {
-          setUser(JSON.parse(storedUser));
+          setUser(parsedUser);
           setToken(storedToken);
+
+          // Refresh employee profile if missing
+          if (
+            parsedUser.role === "EMPLOYEE" &&
+            !parsedUser.profile
+          ) {
+            await fetchEmployeeProfile(
+              storedToken,
+              parsedUser
+            );
+          }
         }
+      } catch (error) {
+        console.error("Session restore failed:", error);
+
+        localStorage.removeItem("hrm_admin_user");
+        localStorage.removeItem("hrm_admin_token");
+        localStorage.removeItem("hrm_employee_user");
+        localStorage.removeItem("hrm_employee_token");
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     };
 
     restoreSession();
   }, []);
 
   /* ---------- Fetch employee profile safely ---------- */
-  const fetchEmployeeProfile = async (authToken: string, baseUser: User) => {
+  const fetchEmployeeProfile = async (
+    authToken: string,
+    baseUser: User
+  ) => {
     if (baseUser.role !== "EMPLOYEE") return;
 
     try {
@@ -92,32 +116,77 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           headers: {
             Authorization: `Bearer ${authToken}`,
           },
-        },
+        }
       );
 
+      // console.log(
+      //   "Employee profile fetch response status:",
+      //   res
+      // );
+
       if (!res.ok) {
-        console.warn("Employee profile fetch blocked:", res.status);
+        console.warn(
+          "Employee profile fetch blocked:",
+          res.status
+        );
         return;
       }
 
       const { data } = await res.json();
 
+      if (!data) return;
+
+      const employee = data;
+      const details = (employee.details ?? {}) as {
+        name?: string;
+        email?: string;
+        contact?: string;
+        photo?: UploadedDoc | null;
+        aadhaar?: UploadedDoc | null;
+        pan?: UploadedDoc | null;
+      };
+
       const updatedUser: User = {
         ...baseUser,
+        name: details.name || employee.name || baseUser.name,
+        email: details.email || employee.email || baseUser.email,
+        verificationStatus: employee.verificationStatus ?? baseUser.verificationStatus,
+        isActive: employee.isActive ?? baseUser.isActive,
         profile: {
-          name: data.name,
-          email: data.email,
-          phone: data.contact,
-          photo: data.photo,
-          aadhaar: data.aadhaar,
-          pan: data.pan,
+          name: details.name || employee.name || baseUser.name,
+          email: details.email || employee.email || baseUser.email,
+          phone: details.contact || "",
+          photo: details.photo ?? null,
+          aadhaar: details.aadhaar ?? null,
+          pan: details.pan ?? null,
+          employeeDetails: {
+            ...employee,
+            employeeId: employee.employeeId ?? baseUser.id,
+            department: employee.department ?? null,
+            designation: employee.designation ?? null,
+            reportingManager: employee.reportingManager ?? null,
+            verificationStatus: employee.verificationStatus ?? baseUser.verificationStatus,
+            isActive: employee.isActive ?? baseUser.isActive,
+          },
         },
       };
 
+      // console.log(
+      //   "Final Profile:",
+      //   updatedUser
+      // );
       setUser(updatedUser);
-      localStorage.setItem("hrm_user", JSON.stringify(updatedUser));
-    } catch (err) {
-      console.error("Employee profile fetch failed:", err);
+
+      // FIXED BUG
+      localStorage.setItem(
+        "hrm_employee_user",
+        JSON.stringify(updatedUser)
+      );
+    } catch (err: unknown) {
+      console.error(
+        "Employee profile fetch failed:",
+        err
+      );
     }
   };
 
@@ -141,13 +210,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       const { token, employee } = json.data;
 
+      if (employee.role !== role) {
+        throw new Error(
+          `Please login from the ${employee.role.toLowerCase()} portal`
+        );
+      }
+
       // console.log("LOGIN API RESPONSE - EMPLOYEE OBJECT:", employee);
 
       /* ================= CREATE USER SESSION FIRST ================= */
 
       const loggedUser: User = {
         id: employee.employeeId,
-        name: employee.email.split("@")[0],
+        name:
+          employee.name ||
+          employee.email?.split("@")[0],
         email: employee.email,
         role: employee.role,
         verificationStatus: employee.verificationStatus,
@@ -167,7 +244,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       /* ================= FETCH PROFILE (OPTIONAL) ================= */
 
+
       if (employee.role === "EMPLOYEE") {
+        // console.log("Fetching employee profile...");
         await fetchEmployeeProfile(token, loggedUser);
       }
 
@@ -180,8 +259,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       );
 
       return true;
-    } catch (err: any) {
-      toast.error(err.message || "Invalid credentials");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unable to login. Please try again.";
+
+      console.error("Login failed:", err);
+
+      toast.error(message);
+
       return false;
     }
   };
@@ -199,7 +283,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     toast.info("Logged out");
-    router.push("/");
+    router.replace("/");
   };
 
   return (

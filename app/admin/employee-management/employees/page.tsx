@@ -1,587 +1,786 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useAuth, UserRole } from "@/app/context/AuthContext";
-import { PlusCircle } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
+import { useAuth } from "@/app/context/AuthContext";
 import PasswordManager from "./PasswordManager";
+import AddEmployee from "../components/AddEmployee";
+import { useApi } from "@/app/Hooks/useApi";
+import { ChevronDown, FileText } from "lucide-react";
 
+/* ─────────────────────────── types ─────────────────────────── */
+interface EmployeeDetailsRecord {
+  name?: string;
+  contact?: string;
+  photo?: { url: string };
+  aadhaar?: { url: string };
+  pan?: { url: string };
+}
+
+interface Employee {
+  _id: string;
+  employeeId: string;
+  email: string;
+  role: string;
+  isActive: boolean;
+  verificationStatus: "PENDING" | "APPROVED" | "REJECTED";
+  designation?: { _id?: string; name?: string; title?: string } | null;
+  department?: { _id?: string; name?: string; title?: string } | null;
+  reportingManager?: {
+    _id?: string;
+    employeeId?: string;
+    email?: string;
+    employeeDetails?: { name?: string } | null;
+    details?: { name?: string } | null;
+  } | null;
+  employeeDetails?: EmployeeDetailsRecord | null;
+  details?: EmployeeDetailsRecord | null;
+}
+
+interface RefData {
+  _id: string;
+  name: string;
+}
+
+interface DesignationRef {
+  _id: string;
+  title: string;
+}
+
+const normalizeEmployee = (employee: Partial<Employee> | null | undefined): Employee => {
+  if (!employee) return {} as Employee;
+
+  const details = employee.employeeDetails ?? employee.details ?? null;
+
+  return {
+    ...employee,
+    employeeDetails: details,
+    designation: employee.designation
+      ? {
+          ...employee.designation,
+          name: employee.designation.name ?? employee.designation.title ?? "",
+        }
+      : null,
+    department: employee.department
+      ? {
+          ...employee.department,
+          name: employee.department.name ?? employee.department.title ?? "",
+        }
+      : null,
+    reportingManager: employee.reportingManager
+      ? {
+          ...employee.reportingManager,
+          employeeDetails:
+            employee.reportingManager.employeeDetails ??
+            employee.reportingManager.details ??
+            null,
+        }
+      : null,
+  } as Employee;
+};
+
+/* ─────────────────────────── helpers ─────────────────────────── */
+const STATUS_STYLES: Record<string, string> = {
+  APPROVED: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+  REJECTED: "bg-red-50 text-red-600 ring-1 ring-red-200",
+  PENDING: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+};
+
+const ROLE_STYLES: Record<string, string> = {
+  ADMIN: "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
+  HR: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+  MANAGER: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200",
+  EMPLOYEE: "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
+};
+
+function Badge({ label, className }: { label: string; className: string }) {
+  return (
+    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide ${className}`}>
+      {label}
+    </span>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string;
+}) {
+  return (
+    <div className="flex text-sm">
+      <span className="w-28 font-medium text-gray-400">
+        {label}:
+      </span>
+      <span className="font-medium text-gray-800">
+        {value || "—"}
+      </span>
+    </div>
+  );
+}
+
+
+/* ═══════════════════════════════════════════════════════════════ */
 export default function EmployeeManagement() {
   const { token } = useAuth();
+  const api = useApi();
 
-  const [employees, setEmployees] = useState<any[]>([]);
+  /* ── state ── */
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [empLoading, setEmpLoading] = useState(true);
 
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [createdEmployee, setCreatedEmployee] = useState<any>(null);
-  const [newEmpRole, setNewEmpRole] = useState<UserRole>("EMPLOYEE");
-
-  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-
   const [passwordLoading, setPasswordLoading] = useState(false);
 
-  /* ================= FETCH EMPLOYEES ================= */
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterRole, setFilterRole] = useState("ALL");
+  const [filterStatus, setFilterStatus] = useState("ALL");
 
-  const fetchEmployees = async () => {
-    // if (!token) return;
+  const [addModalOpen, setAddModalOpen] = useState(false);
 
+
+  const [designations, setDesignations] = useState<DesignationRef[]>([]);
+  const [departments, setDepartments] = useState<RefData[]>([]);
+
+
+  const [isEditing, setIsEditing] = useState(false);
+
+  const [editForm, setEditForm] = useState({
+    role: "",
+    designation: "",
+    department: "",
+    reportingManager: "",
+  });
+
+  const [dropdowns, setDropdowns] = useState({
+    department: false,
+    info: false,
+    documents: false,
+    passwordLoading: false,
+  });
+
+  /* ── derived ── */
+  const filtered = employees.filter((emp) => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch =
+      !q ||
+      emp.employeeId.toLowerCase().includes(q) ||
+      emp.email.toLowerCase().includes(q) ||
+      emp.employeeDetails?.name?.toLowerCase().includes(q) ||
+      emp.designation?.name?.toLowerCase().includes(q) ||
+      emp.department?.name?.toLowerCase().includes(q);
+    const matchesRole = filterRole === "ALL" || emp.role === filterRole;
+    const matchesStatus =
+      filterStatus === "ALL" ||
+      (filterStatus === "ACTIVE" ? emp.isActive : !emp.isActive);
+    return matchesSearch && matchesRole && matchesStatus;
+  });
+
+
+  const fetchEmployees = useCallback(async () => {
     try {
       setEmpLoading(true);
-
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/employees`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-
-      setEmployees(data.data);
-    } catch (error) {
-      console.error(error);
+      const data = await api("/api/admin/employees");
+      const normalizedEmployees = (data?.data ?? []).map(normalizeEmployee);
+      setEmployees(normalizedEmployees);
+    } catch (e) {
+      console.error(e);
     } finally {
       setEmpLoading(false);
     }
-  };
+  }, [api]);
+
+  const fetchRefData = useCallback(async () => {
+    try {
+      const [desData, depData] = await Promise.all([
+        api("/api/admin/designations"),
+        api("/api/admin/departments"),
+      ]);
+      setDesignations(desData.data ?? []);
+      setDepartments(depData.data ?? []);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [api]);
 
   useEffect(() => {
-    if (token) {
-      fetchEmployees();
-    }
-  }, [token]);
+    if (!token) return;
 
-  /* ================= CREATE EMPLOYEE ================= */
+    let cancelled = false;
 
-  const handleAddEmployee = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setCreatedEmployee(null);
+    const loadData = async () => {
+      try {
+        await Promise.all([fetchEmployees(), fetchRefData()]);
+      } finally {
+        if (!cancelled) {
+          setEmpLoading(false);
+        }
+      }
+    };
 
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/create-employee`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            email,
-            role: newEmpRole,
-          }),
-        },
-      );
+    void loadData();
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+    return () => {
+      cancelled = true;
+    };
+  }, [token, fetchEmployees, fetchRefData]);
 
-      setCreatedEmployee(data.data);
-      setEmail("");
-      setNewEmpRole("EMPLOYEE");
 
-      await fetchEmployees();
-    } catch (error: any) {
-      alert(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  /* ================= VIEW DETAILS ================= */
-
+  /* ── view details ── */
   const handleViewDetails = async (employeeId: string) => {
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/employee/${employeeId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
+      const data = await api(`/api/admin/employee/${employeeId}`);
+      const rawEmployee = data?.data?.employee ?? data?.data ?? data;
+      const normalizedEmployee = normalizeEmployee(rawEmployee);
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-
-      setSelectedEmployee(data.data);
+      setSelectedEmployee(normalizedEmployee);
+      setEditForm({
+        role: rawEmployee.role || "",
+        designation: rawEmployee.designation?._id || "",
+        department: rawEmployee.department?._id || "",
+        reportingManager: rawEmployee.reportingManager?._id || "",
+      });
       setModalOpen(true);
-    } catch (error) {
-      console.error(error);
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  /* ================= APPROVE / REJECT ================= */
+  const handleUpdateAssignment = async () => {
+    if (!selectedEmployee) return;
 
-  const handleVerification = async (
-    employeeId: string,
-    status: "APPROVED" | "REJECTED",
-  ) => {
     try {
       setActionLoading(true);
+      // console.log("Updating assignment with", editForm);
 
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/employee/${employeeId}/verify`,
+      await api(
+        `/api/admin/employee/${selectedEmployee.employeeId}/assignment`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ status }),
-        },
+          body: JSON.stringify(editForm),
+        }
       );
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      const updated = await api(
+        `/api/admin/employee/${selectedEmployee.employeeId}`
+      );
+      const rawUpdated = updated?.data?.employee ?? updated?.data ?? updated;
 
+      setSelectedEmployee(normalizeEmployee(rawUpdated));
+
+      await fetchEmployees();
+
+      setIsEditing(false);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  /* ── verify ── */
+  const handleVerification = async (employeeId: string, status: "APPROVED" | "REJECTED") => {
+    try {
+      setActionLoading(true);
+      await api(`/api/admin/employee/${employeeId}/verify`, {
+        method: "PUT",
+        body: JSON.stringify({ status }),
+      });
       await fetchEmployees();
       setModalOpen(false);
-    } catch (error) {
-      console.error(error);
+    } catch (e) {
+      console.error(e);
     } finally {
       setActionLoading(false);
     }
   };
 
-  /* ================= TOGGLE ACTIVE ================= */
-
-  const handleToggleActive = async (
-    employeeId: string,
-    currentStatus: boolean,
-  ) => {
+  /* ── toggle active ── */
+  const handleToggleActive = async (employeeId: string, currentStatus: boolean) => {
     try {
       setActionLoading(true);
-
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/employee/${employeeId}/toggle-status`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            isActive: !currentStatus,
-          }),
-        },
-      );
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-
+      await api(`/api/admin/employee/${employeeId}/toggle-status`, {
+        method: "PUT",
+        body: JSON.stringify({ isActive: !currentStatus }),
+      });
       await fetchEmployees();
-    } catch (error) {
-      console.error(error);
+    } catch (e) {
+      console.error(e);
     } finally {
       setActionLoading(false);
     }
   };
 
+  /* ── update password ── */
   const handleUpdatePassword = async (newPassword: string) => {
+    if (!selectedEmployee) return;
     try {
       setPasswordLoading(true);
-
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/employee/${selectedEmployee.employeeId}/update-password`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ password: newPassword }),
-        },
-      );
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-
+      await api(`/api/admin/employee/${selectedEmployee.employeeId}/update-password`, {
+        method: "PUT",
+        body: JSON.stringify({ password: newPassword }),
+      });
       await fetchEmployees();
       setModalOpen(false);
-    } catch (error) {
-      console.error(error);
+    } catch (e) {
+      console.error(e);
     } finally {
       setPasswordLoading(false);
     }
   };
 
-  console.log(employees);
-
+  // console.log("selectedEmployee", selectedEmployee);
+  /* ═══════════════════════════ render ═══════════════════════════ */
   return (
-    <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4">
-      {/* Page Description Only (No Duplicate Heading) */}
-      <div className="mb-5">
-        <p className="text-sm text-gray-500">
-          Manage employees, verification and activation status.
-        </p>
-      </div>
+    <>
+      <AddEmployee onSuccess={fetchEmployees} employees={employees} designations={designations} departments={departments} isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} />
+      <div className="max-w-screen-xl mx-auto px-3 sm:px-5 py-6 space-y-6">
 
-      {/* Main Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* ================= LEFT: EMPLOYEE DIRECTORY ================= */}
-        <div className="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-gray-200 p-3 sm:p-4 md:p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-semibold text-gray-900">
-              Employee Directory
-            </h3>
-            <span className="text-sm text-gray-500">
-              Total: {employees.length}
-            </span>
-          </div>
-
-          {empLoading ? (
-            <div className="py-10 text-center text-gray-500">
-              Loading employees...
+        {/* ── summary strip ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Total", value: employees.length, color: "bg-slate-50 border-slate-200" },
+            { label: "Active", value: employees.filter(e => e.isActive).length, color: "bg-emerald-50 border-emerald-200" },
+            { label: "Pending", value: employees.filter(e => e.verificationStatus === "PENDING").length, color: "bg-amber-50 border-amber-200" },
+            { label: "Approved", value: employees.filter(e => e.verificationStatus === "APPROVED").length, color: "bg-sky-50 border-sky-200" },
+          ].map(({ label, value, color }) => (
+            <div key={label} className={`rounded-xl border px-4 py-3 ${color}`}>
+              <p className="text-xs text-gray-500 font-medium mb-0.5">{label}</p>
+              <p className="text-2xl font-semibold text-gray-800">{value}</p>
             </div>
-          ) : (
-            <div className="rounded-xl border border-gray-100 overflow-x-auto no-scrollbar">
-              <table className="w-full text-left">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                      Employee
-                    </th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                      Role
-                    </th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                      Verification
-                    </th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-right w-40">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
+          ))}
+        </div>
 
-                <tbody className="divide-y divide-gray-100">
-                  {employees.map((emp) => (
-                    <tr
-                      key={emp._id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-gray-900">
-                            {emp.employeeId}
-                          </span>
-                          <span className="font-medium text-amber-500">
-                            {emp.employeeDetails?.name}
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            {emp.email}
-                          </span>
-                        </div>
-                      </td>
+        {/* ── main grid ── */}
+        <div className=" gap-6 items-start">
 
-                      <td className="px-4 py-3">
-                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                          {emp.role}
-                        </span>
-                      </td>
+          {/* ════════ DIRECTORY ════════ */}
+          <div className=" bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 
-                      <td className="px-4 py-3">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${emp.isActive
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
-                            }`}
-                        >
-                          {emp.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </td>
+            {/* header + filters */}
+            <div className="px-5 pt-5 pb-4 border-b border-gray-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900">Employee Directory</h2>
+                  <span className="text-xs text-gray-400">{filtered.length} of {employees.length}</span>
+                </div>
+                <div>
+                  <button
+                    onClick={() => setAddModalOpen(true)}
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Add Employee
+                  </button>
+                </div>
+              </div>
 
-                      <td className="px-4 py-3">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${emp.verificationStatus === "APPROVED"
-                            ? "bg-green-100 text-green-700"
-                            : emp.verificationStatus === "REJECTED"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-yellow-100 text-yellow-700"
-                            }`}
-                        >
-                          {emp.verificationStatus || "PENDING"}
-                        </span>
-                      </td>
+              <div className="flex flex-wrap gap-2">
+                {/* search */}
+                <div className="relative flex-1 min-w-[160px]">
+                  <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search name, email, ID…"
+                    className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex justify-end gap-3">
-                          <button
-                            onClick={() => handleViewDetails(emp.employeeId)}
-                            className="px-3.5 py-1 text-xs border cursor-pointer rounded-lg bg-gray-100 hover:bg-gray-200 transition"
-                          >
-                            View
-                          </button>
-
-                          {emp.role !== "ADMIN" && (
-                            <button
-                              onClick={() =>
-                                handleToggleActive(emp.employeeId, emp.isActive)
-                              }
-                              className={`px-3.5 py-1 text-xs border cursor-pointer rounded-lg font-medium transition ${emp.isActive
-                                ? "bg-red-50 text-red-600 hover:bg-red-100"
-                                : "bg-green-50 text-green-600 hover:bg-green-100"
-                                }`}
-                            >
-                              {emp.isActive ? "Deactivate" : "Activate"}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                {/* role filter */}
+                <select
+                  value={filterRole}
+                  onChange={(e) => setFilterRole(e.target.value)}
+                  className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {["ALL", "EMPLOYEE", "HR", "MANAGER", "ADMIN"].map(r => (
+                    <option key={r} value={r}>{r === "ALL" ? "All roles" : r}</option>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                </select>
 
-        {/* ================= RIGHT: ADD EMPLOYEE CARD ================= */}
-        <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-200 p-3 sm:p-4 md:p-6 h-fit">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">
-            Add New Employee
-          </h3>
-
-          <form onSubmit={handleAddEmployee} className="space-y-5">
-            <div>
-              <label className="text-sm font-medium text-gray-700">
-                Employee Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                placeholder="employee@company.com"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-700">Role</label>
-              <select
-                value={newEmpRole}
-                onChange={(e) => setNewEmpRole(e.target.value as UserRole)}
-                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              >
-                <option value="EMPLOYEE">Employee</option>
-                <option value="ADMIN">Admin</option>
-              </select>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition"
-            >
-              {loading ? "Creating..." : "Create Account"}
-            </button>
-          </form>
-
-          {createdEmployee && (
-            <div className="mt-6 bg-green-50 border border-green-200 p-4 rounded-lg text-sm">
-              <p className="font-semibold text-green-700">Employee Created</p>
-              <p>ID: {createdEmployee.employeeId}</p>
-              <p>Email: {createdEmployee.email}</p>
-              <p className="text-red-600 font-medium mt-1">
-                Temp Password: {createdEmployee.temporaryPassword}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-      {modalOpen && selectedEmployee && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 overflow-y-scroll">
-          <div className="bg-white w-full max-w-3xl mx-auto rounded-2xl shadow-xl p-8 relative animate-fadeIn">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">
-                Employee Details
-              </h3>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="text-gray-400 hover:text-gray-700 transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Basic Info */}
-            <div className="grid grid-cols-2 gap-6 mb-8">
-              <div>
-                <p className="text-sm text-gray-500">Employee ID</p>
-                <p className="font-medium">{selectedEmployee.employeeId}</p>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-500">Email</p>
-                <p className="font-medium">{selectedEmployee.email}</p>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-500">Role</p>
-                <p className="font-medium">{selectedEmployee.role}</p>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-500">Active Status</p>
-                <p className="font-medium">
-                  {selectedEmployee.isActive ? "Active" : "Inactive"}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-500">Verification</p>
-                <p className="font-medium">
-                  {selectedEmployee.verificationStatus || "PENDING"}
-                </p>
+                {/* status filter */}
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {["ALL", "ACTIVE", "INACTIVE"].map(s => (
+                    <option key={s} value={s}>{s === "ALL" ? "All statuses" : s}</option>
+                  ))}
+                </select>
               </div>
             </div>
-            <div className="w-full">
-              <PasswordManager
-                selectedEmployee={selectedEmployee}
-                onSave={handleUpdatePassword}
-                isLoading={passwordLoading}
-              />
-            </div>
 
-            {/* Divider */}
-            <hr className="my-6" />
-
-            {/* Employee Submitted Details */}
-            {selectedEmployee.employeeDetails ? (
-              <div>
-                <h4 className="text-lg font-semibold mb-4">
-                  Submitted Details
-                </h4>
-
-                <div className="grid grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <p className="text-sm text-gray-500">Full Name</p>
-                    <p className="font-medium">
-                      {selectedEmployee.employeeDetails.name}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-gray-500">Contact</p>
-                    <p className="font-medium">
-                      {selectedEmployee.employeeDetails.contact}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Documents */}
-                <div className="grid grid-cols-3 gap-6">
-                  {selectedEmployee.employeeDetails.photo && (
-                    <div>
-                      <p className="text-sm text-gray-500 mb-2">Photo</p>
-                      <img
-                        src={selectedEmployee.employeeDetails.photo.url}
-                        className="rounded-lg border w-full h-40 object-cover"
-                      />
-                    </div>
-                  )}
-
-                  {selectedEmployee.employeeDetails.aadhaar && (
-                    <div>
-                      <p className="text-sm text-gray-500 mb-2">Aadhaar</p>
-                      <img
-                        src={selectedEmployee.employeeDetails.aadhaar.url}
-                        className="rounded-lg border w-full h-40 object-cover"
-                      />
-                    </div>
-                  )}
-
-                  {selectedEmployee.employeeDetails.pan && (
-                    <div>
-                      <p className="text-sm text-gray-500 mb-2">PAN</p>
-                      <img
-                        src={selectedEmployee.employeeDetails.pan.url}
-                        className="rounded-lg border w-full h-40 object-cover"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
+            {/* table */}
+            {empLoading ? (
+              <div className="py-16 text-center text-gray-400 text-sm">Loading employees…</div>
+            ) : filtered.length === 0 ? (
+              <div className="py-16 text-center text-gray-400 text-sm">No employees match your filters.</div>
             ) : (
-              <div className="text-center text-gray-500 py-10">
-                No details submitted yet.
+              <div className="overflow-x-auto no-scrollbar">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                      <th className="px-5 py-3 text-left">Employee</th>
+                      <th className="px-5 py-3 text-left">Role</th>
+                      <th className="px-5 py-3 text-left">Department</th>
+                      <th className="px-5 py-3 text-left">Designation</th>
+                      <th className="px-5 py-3 text-left">Status</th>
+                      <th className="px-5 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {filtered.map((emp) => (
+                      <tr key={emp._id} className="hover:bg-gray-50/60 transition-colors">
+                        <td className="px-5 py-3.5">
+                          <p className="font-semibold text-gray-900">{emp.employeeDetails?.name || emp.email || "—"}</p>
+                          <p className="text-xs text-gray-400">{emp.employeeId} · {emp.email}</p>
+                        </td>
+
+                        <td className="px-5 py-3.5">
+                          <Badge label={emp.role} className={ROLE_STYLES[emp.role] ?? ROLE_STYLES.EMPLOYEE} />
+
+                        </td>
+                        <td className="px-5 py-3.5">
+
+                          {
+                            emp.department?.name ? (
+                              <Badge label={emp.department.name} className="bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" />
+                            ) : (
+                              <span className="text-gray-300">—</span>
+                            )
+                          }
+                        </td>
+
+                        <td className="px-5 py-3.5">
+                          {emp.designation?.title || emp.designation?.name ? (
+                            <Badge
+                              label={emp.designation.title ?? emp.designation.name ?? ""}
+                              className="bg-blue-50 text-blue-700 ring-1 ring-blue-200"
+                            />
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+
+                        <td className="px-5 py-3.5">
+                          <div className="flex flex-col gap-1">
+                            <Badge
+                              label={emp.isActive ? "Active" : "Inactive"}
+                              className={emp.isActive ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" : "bg-red-50 text-red-600 ring-1 ring-red-200"}
+                            />
+                            <Badge
+                              label={emp.verificationStatus ?? "PENDING"}
+                              className={STATUS_STYLES[emp.verificationStatus] ?? STATUS_STYLES.PENDING}
+                            />
+                          </div>
+                        </td>
+
+                        <td className="px-5 py-3.5 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => handleViewDetails(emp.employeeId)}
+                              className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition"
+                            >
+                              View
+                            </button>
+                            {emp.role !== "ADMIN" && (
+                              <button
+                                onClick={() => handleToggleActive(emp.employeeId, emp.isActive)}
+                                disabled={actionLoading}
+                                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition disabled:opacity-40 ${emp.isActive
+                                  ? "bg-red-50 text-red-600 hover:bg-red-100"
+                                  : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                  }`}
+                              >
+                                {emp.isActive ? "Deactivate" : "Activate"}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
+          </div>
+        </div>
 
-            {/* Footer */}
-            <div className="flex justify-between items-center mt-8 border-t pt-6">
-              {/* Left Side: Verification Status */}
-              <div>
-                <span className="text-sm text-gray-500 mr-2">
-                  Current Status:
-                </span>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-semibold ${selectedEmployee.verificationStatus === "APPROVED"
-                    ? "bg-green-100 text-green-700"
-                    : selectedEmployee.verificationStatus === "REJECTED"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-yellow-100 text-yellow-700"
-                    }`}
-                >
-                  {selectedEmployee.verificationStatus || "PENDING"}
-                </span>
-              </div>
+        {/* ════════════════ DETAIL MODAL ════════════════ */}
+        {modalOpen && selectedEmployee && (
+          <div
+            className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center px-4 py-10 overflow-y-auto"
+            onClick={(e) => { if (e.target === e.currentTarget) setModalOpen(false); }}
+          >
+            <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden">
 
-              {/* Right Side: Buttons */}
-              <div className="flex gap-3">
+              {/* modal header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <div>
+                  <h3 className="font-semibold text-gray-900">Employee Details</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">{selectedEmployee.employeeId}</p>
+                </div>
                 <button
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition text-sm"
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition text-gray-400"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="px-6 py-5 space-y-6">
+
+                {/* status badges row */}
+                <div className="flex flex-wrap gap-2">
+                  <Badge label={selectedEmployee.role} className={ROLE_STYLES[selectedEmployee.role] ?? ROLE_STYLES.EMPLOYEE} />
+                  <Badge
+                    label={selectedEmployee.isActive ? "Active" : "Inactive"}
+                    className={selectedEmployee.isActive ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" : "bg-red-50 text-red-600 ring-1 ring-red-200"}
+                  />
+                  <Badge
+                    label={selectedEmployee.verificationStatus ?? "PENDING"}
+                    className={STATUS_STYLES[selectedEmployee.verificationStatus] ?? STATUS_STYLES.PENDING}
+                  />
+                </div>
+
+                {/* core info grid */}
+                <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-4">
+
+                  <div className="flex flex-col gap-4">
+                    <InfoRow label="Email" value={selectedEmployee.email} />
+                    <InfoRow label="Full Name" value={selectedEmployee.employeeDetails?.name} />
+                    <InfoRow label="Contact" value={selectedEmployee.employeeDetails?.contact} />
+                  </div>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
+                  <button
+                    onClick={() =>
+                      setDropdowns((prev) => ({
+                        ...prev,
+                        department: !prev.department,
+                      }))
+                    }
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-gray-900">
+                        Designation & Department
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Role, designation, department & reporting manager
+                      </p>
+                    </div>
+
+                    <ChevronDown
+                      className={`h-5 w-5 text-gray-500 transition-transform duration-200 ${dropdowns.department ? "rotate-180" : ""
+                        }`}
+                    />
+                  </button>
+
+                  {dropdowns.department && (
+                    <div className="border-t border-gray-200 p-4">
+
+
+                      {!isEditing ? (
+                        <div className="flex flex-col gap-4">
+                          <InfoRow label="Role" value={selectedEmployee.role} />
+                          <InfoRow
+                            label="Designation"
+                            value={selectedEmployee.designation?.title ?? selectedEmployee.designation?.name}
+                          />
+                          <InfoRow
+                            label="Department"
+                            value={selectedEmployee.department?.name ?? selectedEmployee.department?.title}
+                          />
+                          <InfoRow
+                            label="Reporting Manager"
+                            value={
+                              selectedEmployee.reportingManager
+                                ? selectedEmployee.reportingManager.employeeDetails?.name ||
+                                  selectedEmployee.reportingManager.details?.name ||
+                                  selectedEmployee.reportingManager.employeeId
+                                : undefined
+                            }
+                          />
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Your existing Role / Department / Designation / Manager fields */}
+                          {/* Role */} <div>
+                            <label className="block text-sm font-medium mb-1"> Role </label>
+                            <select value={editForm.role} onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value, }))} className="w-full border rounded-lg px-3 py-2" >
+                              <option value="EMPLOYEE">Employee</option>
+                              <option value="HR">HR</option>
+                              <option value="MANAGER">Manager</option>
+                              <option value="ADMIN">Admin</option>
+                            </select>
+
+                          </div> {/* Department */}
+                          <div>
+                            <label className="block text-sm font-medium mb-1"> Department </label>
+                            <select value={editForm.department} onChange={(e) => setEditForm((prev) => ({ ...prev, department: e.target.value, }))} className="w-full border rounded-lg px-3 py-2" >
+                              <option value="">Select Department</option>
+                              {departments.map((dept) => (<option key={dept._id} value={dept._id}> {dept.name} </option>))}
+                            </select>
+                          </div>
+                          {/* Designation */}
+                          <div>
+                            <label className="block text-sm font-medium mb-1"> Designation </label>
+                            <select value={editForm.designation} onChange={(e) => setEditForm((prev) => ({ ...prev, designation: e.target.value, }))} className="w-full border rounded-lg px-3 py-2" >
+                              <option value="">Select Designation</option>
+                              {designations.map((designation) => (<option key={designation._id} value={designation._id} > {designation.title} </option>))}
+                            </select>
+                          </div>
+                          {/* Reporting Manager */} <div>
+                            <label className="block text-sm font-medium mb-1"> Reporting Manager </label>
+                            <select value={editForm.reportingManager} onChange={(e) => setEditForm((prev) => ({ ...prev, reportingManager: e.target.value, }))} className="w-full border rounded-lg px-3 py-2" >
+                              <option value="">Select Manager</option>
+                              {employees.filter((e) => e._id !== selectedEmployee._id).map((emp) => (<option key={emp._id} value={emp._id}> {emp.employeeDetails?.name || emp.email} </option>))}
+                            </select>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex justify-end mt-4">
+                        {!isEditing ? (
+                          <button
+                            onClick={() => setIsEditing(true)}
+                            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                          >
+                            Edit Assignment
+                          </button>
+                        ) : (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setIsEditing(false)}
+                              className="px-4 py-2 text-sm border rounded-lg"
+                            >
+                              Cancel
+                            </button>
+
+                            <button
+                              onClick={handleUpdateAssignment}
+                              disabled={actionLoading}
+                              className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg"
+                            >
+                              Save Changes
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* documents */}
+                {selectedEmployee.employeeDetails && (
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
+                    <button
+                      onClick={() =>
+                        setDropdowns((prev) => ({
+                          ...prev,
+                          documents: !prev.documents,
+                        }))
+                      }
+                      className="w-full flex items-center justify-between rounded-t-xl border border-gray-200 bg-gray-50 px-4 py-3 hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100">
+                          <FileText className="h-4 w-4 text-blue-600" />
+                        </div>
+
+                        <div className="text-left">
+                          <p className="text-sm font-semibold text-gray-900">
+                            Documents
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Aadhaar, PAN & profile photo
+                          </p>
+                        </div>
+                      </div>
+
+                      <ChevronDown
+                        className={`h-5 w-5 text-gray-500 transition-transform duration-200 ${dropdowns.documents ? "rotate-180" : ""
+                          }`}
+                      />
+                    </button>
+                    {
+                      dropdowns.documents && (
+                        <div className="grid grid-cols-3 gap-3 p-4">
+                          {(["photo", "aadhaar", "pan"] as const).map((doc) => {
+                            const item = selectedEmployee.employeeDetails?.[doc];
+                            return item ? (
+                              <div key={doc}>
+                                <p className="text-xs text-gray-400 mb-1.5 capitalize">{doc}</p>
+                                <Image
+                                  src={item.url}
+                                  alt={doc}
+                                  width={400}
+                                  height={144}
+                                  unoptimized
+                                  className="w-full h-36 object-cover rounded-xl border border-gray-200"
+                                />
+                              </div>
+                            ) : null;
+                          })}
+                        </div>
+                      )
+                    }
+                  </div>
+                )}
+
+                {/* password manager */}
+                <div className="rounded-xl border border-gray-100 p-4">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Password</p>
+                  <PasswordManager
+                    selectedEmployee={selectedEmployee}
+                    onSave={handleUpdatePassword}
+                    isLoading={passwordLoading}
+                  />
+                </div>
+              </div>
+
+              {/* modal footer */}
+              <div className="flex justify-between items-center px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+                <button
+                  onClick={() => setModalOpen(false)}
+                  className="px-4 py-2 text-sm rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition"
                 >
                   Close
                 </button>
 
-                {/* Show verify/reject only if not already approved */}
                 {selectedEmployee.verificationStatus !== "APPROVED" && (
-                  <>
+                  <div className="flex gap-2">
                     <button
-                      onClick={() =>
-                        handleVerification(
-                          selectedEmployee.employeeId,
-                          "REJECTED",
-                        )
-                      }
+                      onClick={() => handleVerification(selectedEmployee.employeeId, "REJECTED")}
                       disabled={actionLoading}
-                      className="px-4 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition text-sm font-medium disabled:opacity-50"
+                      className="px-4 py-2 text-sm font-medium rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition disabled:opacity-40"
                     >
-                      {actionLoading ? "Processing..." : "Reject"}
+                      {actionLoading ? "Processing…" : "Reject"}
                     </button>
-
                     <button
-                      onClick={() =>
-                        handleVerification(
-                          selectedEmployee.employeeId,
-                          "APPROVED",
-                        )
-                      }
+                      onClick={() => handleVerification(selectedEmployee.employeeId, "APPROVED")}
                       disabled={actionLoading}
-                      className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition text-sm font-medium disabled:opacity-50"
+                      className="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-40"
                     >
-                      {actionLoading ? "Processing..." : "Approve"}
+                      {actionLoading ? "Processing…" : "Approve"}
                     </button>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+
+
+    </>
   );
 }

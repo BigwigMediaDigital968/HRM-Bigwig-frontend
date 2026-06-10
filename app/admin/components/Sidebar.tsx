@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, ChevronDown, ChevronRight, X } from "lucide-react";
+import { LogOut, ChevronDown, ChevronRight, X, Building2, Briefcase } from "lucide-react";
 import { useState } from "react";
 
 interface SidebarProps {
@@ -23,16 +23,13 @@ export const ADMIN_MENU = [
     title: "Staffing",
     icon: Users,
     submenu: [
+      { title: "Directory", href: "/admin/employee-management/employees", icon: Users },
       {
-        title: "Employees",
-        href: "/admin/employee-management/employees",
-        icon: Users,
+        title: "Organization",
+        href: "/admin/organization",
+        icon: Building2,
       },
-      {
-        title: "Leaves",
-        href: "/admin/employee-management/leave-management",
-        icon: Calendar,
-      },
+      { title: "Leaves", href: "/admin/employee-management/leave-management", icon: Calendar },
     ],
   },
   {

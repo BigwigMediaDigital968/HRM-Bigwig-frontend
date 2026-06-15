@@ -28,8 +28,6 @@ import { useRouter } from "next/navigation";
 import ExportModal from "../components/ExportModal";
 import { useQuery } from "@tanstack/react-query";
 
-
-
 const API = process.env.NEXT_PUBLIC_API_URL;
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
@@ -62,43 +60,51 @@ interface EmployeeSummary {
   wfhDays: number;
   wfoDays: number;
   totalDays: number;
-  workingDays?:number;
+  workingDays?: number;
 }
 
-
-
 type ActiveTab = "records" | "summary" | "pending";
-
-
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
 const formatTime = (date?: string) => {
   if (!date) return "—";
-  return new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date(date).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
 const formatDate = (date: string) =>
-  new Date(date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  new Date(date).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 
 const DELAY_BADGE: Record<DelayStatus, { label: string; className: string }> = {
-  PENDING: { label: "Pending", className: "bg-yellow-100 text-yellow-700 border border-yellow-200" },
-  APPROVED: { label: "Approved", className: "bg-blue-100 text-blue-700 border border-blue-200" },
-  REJECTED: { label: "Rejected", className: "bg-red-100 text-red-700 border border-red-200" },
+  PENDING: {
+    label: "Pending",
+    className: "bg-yellow-100 text-yellow-700 border border-yellow-200",
+  },
+  APPROVED: {
+    label: "Approved",
+    className: "bg-blue-100 text-blue-700 border border-blue-200",
+  },
+  REJECTED: {
+    label: "Rejected",
+    className: "bg-red-100 text-red-700 border border-red-200",
+  },
 };
 
-
-
 /* ─── Export Modal ───────────────────────────────────────────────────────── */
-
-
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 
 export default function AdminAttendancePage() {
   const { token, loading: authLoading } = useAuth();
   const router = useRouter();
-  2
+  2;
   const [activeTab, setActiveTab] = useState<ActiveTab>("records");
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [summary, setSummary] = useState<EmployeeSummary[]>([]);
@@ -112,60 +118,107 @@ export default function AdminAttendancePage() {
   const [searchEmpId, setSearchEmpId] = useState("");
   const [filterDate, setFilterDate] = useState("");
   const [lateOnly, setLateOnly] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  // const [selectedMonth, setSelectedMonth] = useState(
+  //   new Date().toISOString().slice(0, 7),
+  // );
+
+  const currentMonth = new Date().toISOString().slice(0, 7);
+
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
   useEffect(() => {
     if (authLoading) return;
-    if (!token) { router.push("/"); return; }
+    if (!token) {
+      router.push("/");
+      return;
+    }
     if (activeTab === "records" || activeTab === "pending") fetchRecords(token);
     else fetchSummary(token);
   }, [token, authLoading, activeTab, selectedMonth]);
 
-  const fetchRecords = useCallback(async (authToken: string) => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (filterDate) params.set("date", filterDate);
-      if (activeTab === "pending") params.set("lateOnly", "true");
-      else if (lateOnly) params.set("lateOnly", "true");
+  const fetchRecords = useCallback(
+    async (authToken: string) => {
+      try {
+        setLoading(true);
+        const params = new URLSearchParams();
+        if (filterDate) params.set("date", filterDate);
+        if (activeTab === "pending") params.set("lateOnly", "true");
+        else if (lateOnly) params.set("lateOnly", "true");
 
-      const res = await fetch(`${API}/api/attendance/admin/all?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      if (res.status === 401) { router.push("/"); return; }
-      const data = await res.json();
-      if (data.success) {
-        let filtered = data.data as AttendanceRecord[];
-        if (searchEmpId.trim()) {
-          filtered = filtered.filter((r) =>
-            r.employee?.employeeId?.toLowerCase().includes(searchEmpId.toLowerCase())
-          );
+        const res = await fetch(
+          `${API}/api/attendance/admin/all?${params.toString()}`,
+          {
+            headers: { Authorization: `Bearer ${authToken}` },
+          },
+        );
+        if (res.status === 401) {
+          router.push("/");
+          return;
         }
-        setRecords(filtered);
+        const data = await res.json();
+        // if (data.success) {
+        //   let filtered = data.data as AttendanceRecord[];
+        //   if (searchEmpId.trim()) {
+        //     filtered = filtered.filter((r) =>
+        //       r.employee?.employeeId
+        //         ?.toLowerCase()
+        //         .includes(searchEmpId.toLowerCase()),
+        //     );
+        //   }
+        //   setRecords(filtered);
+        // }
+        if (data.success) {
+          let filtered = data.data as AttendanceRecord[];
+
+          // Filter by selected month
+          filtered = filtered.filter((record) => {
+            const recordMonth = new Date(record.date).toISOString().slice(0, 7);
+
+            return recordMonth === selectedMonth;
+          });
+
+          if (searchEmpId.trim()) {
+            filtered = filtered.filter((r) =>
+              r.employee?.employeeId
+                ?.toLowerCase()
+                .includes(searchEmpId.toLowerCase()),
+            );
+          }
+
+          setRecords(filtered);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [filterDate, lateOnly, searchEmpId, activeTab]);
+    },
+    [filterDate, lateOnly, searchEmpId, activeTab, selectedMonth],
+  );
 
-  const fetchSummary = useCallback(async (authToken: string) => {
-    try {
-      setLoading(true);
-      const res = await fetch(`${API}/api/attendance/admin/attnadance-summary?month=${selectedMonth}`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      const data = await res.json();
-      // console.log("data.data", data.data)
-      if (data.success) setSummary(data.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedMonth]);
+  // console.log(records);
 
+  const fetchSummary = useCallback(
+    async (authToken: string) => {
+      try {
+        setLoading(true);
+        const res = await fetch(
+          `${API}/api/attendance/admin/attnadance-summary?month=${selectedMonth}`,
+          {
+            headers: { Authorization: `Bearer ${authToken}` },
+          },
+        );
+        const data = await res.json();
+        // console.log("data.data", data.data)
+        if (data.success) setSummary(data.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [selectedMonth],
+  );
 
   const {
     data: employees = [],
@@ -173,7 +226,7 @@ export default function AdminAttendancePage() {
     error: empError,
     refetch: fetchEmployees,
   } = useQuery({
-    queryKey: ['employees'],
+    queryKey: ["employees"],
 
     queryFn: async () => {
       const res = await fetch(
@@ -182,7 +235,7 @@ export default function AdminAttendancePage() {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-          cache: 'no-store',
+          cache: "no-store",
         },
       );
 
@@ -191,7 +244,7 @@ export default function AdminAttendancePage() {
       // console.log(data)
 
       if (!res.ok) {
-        throw new Error(data.message || 'Failed to fetch employees');
+        throw new Error(data.message || "Failed to fetch employees");
       }
 
       return data.data;
@@ -200,24 +253,41 @@ export default function AdminAttendancePage() {
     enabled: !!token,
   });
 
+  console.log("employee", employees);
 
-  console.log("employee", employees)
-
-  const handleDelayAction = async (attendanceId: string, status: "APPROVED" | "REJECTED") => {
+  const handleDelayAction = async (
+    attendanceId: string,
+    status: "APPROVED" | "REJECTED",
+  ) => {
     if (!token) return;
     try {
       setActionLoading(attendanceId + status);
-      const res = await fetch(`${API}/api/attendance/admin/${attendanceId}/delay-action`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status, remarks: remarks[attendanceId] || "" }),
-      });
+      const res = await fetch(
+        `${API}/api/attendance/admin/${attendanceId}/delay-action`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            status,
+            remarks: remarks[attendanceId] || "",
+          }),
+        },
+      );
       const data = await res.json();
       if (data.success) {
         setRecords((prev) =>
           prev.map((r) =>
-            r._id === attendanceId ? { ...r, delayStatus: status, adminRemarks: remarks[attendanceId] || "" } : r
-          )
+            r._id === attendanceId
+              ? {
+                  ...r,
+                  delayStatus: status,
+                  adminRemarks: remarks[attendanceId] || "",
+                }
+              : r,
+          ),
         );
         setExpandedRow(null);
       } else {
@@ -231,32 +301,56 @@ export default function AdminAttendancePage() {
     }
   };
 
-  const applyFilters = () => { if (token) fetchRecords(token); };
+  const applyFilters = () => {
+    if (token) fetchRecords(token);
+  };
   const resetFilters = () => {
-    setSearchEmpId(""); setFilterDate(""); setLateOnly(false);
+    setSearchEmpId("");
+    setFilterDate("");
+    setLateOnly(false);
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    setSelectedMonth(currentMonth);
     if (token) fetchRecords(token);
   };
 
-  const pendingCount = records.filter((r) => r.markedLate && r.delayStatus === "PENDING").length;
-  const displayRecords = activeTab === "pending"
-    ? records.filter((r) => r.markedLate && r.delayStatus === "PENDING")
-    : records;
+  const pendingCount = records.filter(
+    (r) => r.markedLate && r.delayStatus === "PENDING",
+  ).length;
+  const displayRecords =
+    activeTab === "pending"
+      ? records.filter((r) => r.markedLate && r.delayStatus === "PENDING")
+      : records;
 
   /* ─── Render ─────────────────────────────────────────────────────────── */
 
   return (
     <>
-      {showExport && token && <ExportModal token={token}  onClose={() => setShowExport(false)} employees={employees} />}
+      {showExport && token && (
+        <ExportModal
+          token={token}
+          onClose={() => setShowExport(false)}
+          employees={employees}
+        />
+      )}
 
       <div className="space-y-6 p-4 sm:p-8">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Attendance Management</h2>
-            <p className="text-sm text-gray-400 mt-0.5">Monitor, filter, and manage employee attendance</p>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Attendance Management
+            </h2>
+            <p className="text-sm text-gray-400 mt-0.5">
+              Monitor, filter, and manage employee attendance
+            </p>
           </div>
           <button
-            onClick={() => token && (activeTab === "summary" ? fetchSummary(token) : fetchRecords(token))}
+            onClick={() =>
+              token &&
+              (activeTab === "summary"
+                ? fetchSummary(token)
+                : fetchRecords(token))
+            }
             className="flex items-center gap-2 text-sm border rounded-lg px-3 py-2 text-gray-600 hover:bg-gray-50 transition"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -268,19 +362,46 @@ export default function AdminAttendancePage() {
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-full sm:w-fit overflow-x-auto no-scrollbar">
           {(
             [
-              { id: "records", label: "All", fullLabel: "All Records", icon: <Calendar className="w-3.5 h-3.5" /> },
-              { id: "pending", label: "Pending", fullLabel: "Pending Approvals", icon: <AlertCircle className="w-3.5 h-3.5" />, badge: pendingCount },
-              { id: "summary", label: "Summary", fullLabel: "Monthly Summary", icon: <Users className="w-3.5 h-3.5" /> },
-            ] as { id: ActiveTab; label: string; fullLabel?: string; icon: React.ReactNode; badge?: number }[]
+              {
+                id: "records",
+                label: "All",
+                fullLabel: "All Records",
+                icon: <Calendar className="w-3.5 h-3.5" />,
+              },
+              {
+                id: "pending",
+                label: "Pending",
+                fullLabel: "Pending Approvals",
+                icon: <AlertCircle className="w-3.5 h-3.5" />,
+                badge: pendingCount,
+              },
+              {
+                id: "summary",
+                label: "Summary",
+                fullLabel: "Monthly Summary",
+                icon: <Users className="w-3.5 h-3.5" />,
+              },
+            ] as {
+              id: ActiveTab;
+              label: string;
+              fullLabel?: string;
+              icon: React.ReactNode;
+              badge?: number;
+            }[]
           ).map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === tab.id ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"
-                }`}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
+                activeTab === tab.id
+                  ? "bg-white shadow-sm text-gray-900"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
             >
               {tab.icon}
-              <span className="hidden xs:inline">{tab?.fullLabel || tab.label}</span>
+              <span className="hidden xs:inline">
+                {tab?.fullLabel || tab.label}
+              </span>
               <span className="xs:hidden">{tab.label}</span>
               {tab.badge !== undefined && tab.badge > 0 && (
                 <span className="ml-1 bg-red-500 text-white text-[10px] w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center">
@@ -296,7 +417,9 @@ export default function AdminAttendancePage() {
           <div className="bg-white rounded-2xl border shadow-sm p-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-end gap-4">
               <div className="flex-1 min-w-[140px]">
-                <label className="text-xs text-gray-400 mb-1 block">Employee ID</label>
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Employee ID
+                </label>
                 <div className="relative">
                   <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
                   <input
@@ -310,7 +433,9 @@ export default function AdminAttendancePage() {
               </div>
 
               <div className="min-w-[140px]">
-                <label className="text-xs text-gray-400 mb-1 block">Date</label>
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Select Date
+                </label>
                 <input
                   type="date"
                   value={filterDate}
@@ -319,9 +444,26 @@ export default function AdminAttendancePage() {
                 />
               </div>
 
+              <div className="min-w-[140px]">
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Select Month
+                </label>
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="rounded-lg border px-3 py-2"
+                />
+              </div>
+
               <div className="flex items-center gap-4 lg:mb-2">
                 <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                  <input type="checkbox" checked={lateOnly} onChange={(e) => setLateOnly(e.target.checked)} className="rounded" />
+                  <input
+                    type="checkbox"
+                    checked={lateOnly}
+                    onChange={(e) => setLateOnly(e.target.checked)}
+                    className="rounded"
+                  />
                   Late Only
                 </label>
               </div>
@@ -334,7 +476,10 @@ export default function AdminAttendancePage() {
                   <Filter className="w-3.5 h-3.5" />
                   Apply
                 </button>
-                <button onClick={resetFilters} className="cursor-pointer text-sm text-gray-400 hover:text-gray-600 px-2 py-2">
+                <button
+                  onClick={resetFilters}
+                  className="cursor-pointer text-sm text-gray-400 hover:text-gray-600 px-2 py-2"
+                >
                   Reset
                 </button>
               </div>
@@ -354,7 +499,9 @@ export default function AdminAttendancePage() {
                   onChange={(e) => setSelectedMonth(e.target.value)}
                   className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <span className="text-sm text-gray-400">{summary.length} employees</span>
+                <span className="text-sm text-gray-400">
+                  {summary.length} employees
+                </span>
               </div>
 
               {/* Export Button */}
@@ -374,7 +521,9 @@ export default function AdminAttendancePage() {
                     <tr>
                       <th className="px-6 py-3">Employee ID</th>
                       <th className="px-6 py-3">Email</th>
-                      <th className="px-6 py-3 text-center">Present / Absent</th>
+                      <th className="px-6 py-3 text-center">
+                        Present / Absent
+                      </th>
                       <th className="px-6 py-3 text-center">Late</th>
                       <th className="px-6 py-3 text-center">WFH</th>
                       <th className="px-6 py-3 text-center">WFO</th>
@@ -384,32 +533,61 @@ export default function AdminAttendancePage() {
                   <tbody className="divide-y">
                     {loading ? (
                       <tr>
-                        <td colSpan={8} className="px-6 py-10 text-center text-gray-300">Loading...</td>
+                        <td
+                          colSpan={8}
+                          className="px-6 py-10 text-center text-gray-300"
+                        >
+                          Loading...
+                        </td>
                       </tr>
                     ) : summary.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-6 py-10 text-center text-gray-300">No data for this month.</td>
+                        <td
+                          colSpan={8}
+                          className="px-6 py-10 text-center text-gray-300"
+                        >
+                          No data for this month.
+                        </td>
                       </tr>
                     ) : (
                       summary.map((emp) => {
-                        const pct = emp?.workingDays && emp?.workingDays > 0 ? Math.round((emp.presentDays / emp.workingDays) * 100) : 0;
+                        const pct =
+                          emp?.workingDays && emp?.workingDays > 0
+                            ? Math.round(
+                                (emp.presentDays / emp.workingDays) * 100,
+                              )
+                            : 0;
                         return (
                           <tr key={emp.employeeId} className="hover:bg-gray-50">
                             <td className="px-6 py-4 font-medium text-gray-800">
                               <p className="text-sm">{emp.employee.name}</p>
-                              <p className="text-xs text-gray-500">{emp.employee.employeeId}</p>
+                              <p className="text-xs text-gray-500">
+                                {emp.employee.employeeId}
+                              </p>
                             </td>
-                            <td className="px-6 py-4 text-gray-500 text-xs">{emp.employee.email}</td>
+                            <td className="px-6 py-4 text-gray-500 text-xs">
+                              {emp.employee.email}
+                            </td>
                             <td className="px-6 py-4 text-center">
-                              <span className="text-green-600 font-semibold">{emp.presentDays}</span>
+                              <span className="text-green-600 font-semibold">
+                                {emp.presentDays}
+                              </span>
                               {" / "}
-                              <span className="text-red-500 font-semibold">{emp.absentDays}</span>
+                              <span className="text-red-500 font-semibold">
+                                {emp.absentDays}
+                              </span>
                             </td>
                             <td className="px-6 py-4 text-center">
-                              <span className="text-yellow-600 font-semibold">{emp.lateDays}</span>
+                              <span className="text-yellow-600 font-semibold">
+                                {emp.lateDays}
+                              </span>
                             </td>
-                            <td className="px-6 py-4 text-center text-purple-600">{emp.wfhDays}</td>
-                            <td className="px-6 py-4 text-center text-blue-600">{emp.wfoDays}</td>
+                            <td className="px-6 py-4 text-center text-purple-600">
+                              {emp.wfhDays}
+                            </td>
+                            <td className="px-6 py-4 text-center text-blue-600">
+                              {emp.wfoDays}
+                            </td>
                             <td className="px-6 py-4 text-center">
                               <div className="flex items-center justify-center gap-2">
                                 <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -418,7 +596,9 @@ export default function AdminAttendancePage() {
                                     style={{ width: `${pct}%` }}
                                   />
                                 </div>
-                                <span className="text-xs font-medium text-gray-600">{pct}%</span>
+                                <span className="text-xs font-medium text-gray-600">
+                                  {pct}%
+                                </span>
                               </div>
                             </td>
                           </tr>
@@ -437,9 +617,13 @@ export default function AdminAttendancePage() {
           <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b flex items-center justify-between">
               <h3 className="font-semibold text-gray-900">
-                {activeTab === "pending" ? "Pending Late Approvals" : "Attendance Records"}
+                {activeTab === "pending"
+                  ? "Pending Late Approvals"
+                  : "Attendance Records"}
               </h3>
-              <span className="text-xs text-gray-400">{displayRecords.length} records</span>
+              <span className="text-xs text-gray-400">
+                {displayRecords.length} records
+              </span>
             </div>
 
             <div className="overflow-x-auto">
@@ -458,42 +642,76 @@ export default function AdminAttendancePage() {
                 <tbody className="divide-y">
                   {loading ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-10 text-center text-gray-300">Loading...</td>
+                      <td
+                        colSpan={7}
+                        className="px-6 py-10 text-center text-gray-300"
+                      >
+                        Loading...
+                      </td>
                     </tr>
                   ) : displayRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-10 text-center text-gray-300">
-                        {activeTab === "pending" ? "No pending approvals 🎉" : "No records found."}
+                      <td
+                        colSpan={7}
+                        className="px-6 py-10 text-center text-gray-300"
+                      >
+                        {activeTab === "pending"
+                          ? "No pending approvals 🎉"
+                          : "No records found."}
                       </td>
                     </tr>
                   ) : (
                     displayRecords.map((record) => (
                       <React.Fragment key={record._id}>
                         <tr
-                          className={`hover:bg-gray-50 transition ${record.markedLate && record.delayStatus === "PENDING" ? "bg-yellow-50/30" : ""
-                            }`}
+                          className={`hover:bg-gray-50 transition ${
+                            record.markedLate &&
+                            record.delayStatus === "PENDING"
+                              ? "bg-yellow-50/30"
+                              : ""
+                          }`}
                         >
                           <td className="px-6 py-4">
-                            <p className="font-medium text-gray-800 text-sm">{record.employee?.employeeId ?? "—"}</p>
-                            <p className="text-xs text-gray-400">{record.employee?.email ?? ""}</p>
+                            <p className="font-medium text-gray-800 text-sm">
+                              {record.employee?.employeeId ?? "—"}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {record.employee?.email ?? ""}
+                            </p>
                           </td>
-                          <td className="px-6 py-4 text-gray-700">{formatDate(record.date)}</td>
-                          <td className="px-6 py-4 text-gray-600">{formatTime(record.checkInTime)}</td>
-                          <td className="px-6 py-4 text-gray-600">{formatTime(record.checkOutTime)}</td>
+                          <td className="px-6 py-4 text-gray-700">
+                            {formatDate(record.date)}
+                          </td>
+                          <td className="px-6 py-4 text-gray-600">
+                            {formatTime(record.checkInTime)}
+                          </td>
+                          <td className="px-6 py-4 text-gray-600">
+                            {formatTime(record.checkOutTime)}
+                          </td>
                           <td className="px-6 py-4">
                             {record.workMode ? (
                               <span className="flex items-center gap-1 text-xs text-gray-600">
-                                {record.workMode === "WFH"
-                                  ? <Home className="w-3.5 h-3.5 text-purple-500" />
-                                  : <Monitor className="w-3.5 h-3.5 text-blue-500" />}
+                                {record.workMode === "WFH" ? (
+                                  <Home className="w-3.5 h-3.5 text-purple-500" />
+                                ) : (
+                                  <Monitor className="w-3.5 h-3.5 text-blue-500" />
+                                )}
                                 {record.workMode}
                               </span>
-                            ) : "—"}
+                            ) : (
+                              "—"
+                            )}
                           </td>
                           <td className="px-6 py-4">
                             {record.markedLate ? (
-                              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${DELAY_BADGE[record.delayStatus ?? "PENDING"].className}`}>
-                                Late · {DELAY_BADGE[record.delayStatus ?? "PENDING"].label}
+                              <span
+                                className={`px-2.5 py-1 rounded-full text-xs font-medium ${DELAY_BADGE[record.delayStatus ?? "PENDING"].className}`}
+                              >
+                                Late ·{" "}
+                                {
+                                  DELAY_BADGE[record.delayStatus ?? "PENDING"]
+                                    .label
+                                }
                               </span>
                             ) : (
                               <span className="px-2.5 py-1 bg-green-100 text-green-700 border border-green-200 rounded-full text-xs font-medium">
@@ -504,17 +722,30 @@ export default function AdminAttendancePage() {
                           <td className="px-6 py-4">
                             {record.markedLate && (
                               <button
-                                onClick={() => setExpandedRow(expandedRow === record._id ? null : record._id)}
+                                onClick={() =>
+                                  setExpandedRow(
+                                    expandedRow === record._id
+                                      ? null
+                                      : record._id,
+                                  )
+                                }
                                 className="text-gray-400 hover:text-gray-600 transition"
                               >
-                                {expandedRow === record._id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                {expandedRow === record._id ? (
+                                  <ChevronUp className="w-4 h-4" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4" />
+                                )}
                               </button>
                             )}
                           </td>
                         </tr>
 
                         {expandedRow === record._id && record.markedLate && (
-                          <tr key={`${record._id}-detail`} className="bg-amber-50/60">
+                          <tr
+                            key={`${record._id}-detail`}
+                            className="bg-amber-50/60"
+                          >
                             <td colSpan={7} className="px-6 py-5">
                               <div className="space-y-3 max-w-2xl">
                                 <div className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
@@ -522,16 +753,28 @@ export default function AdminAttendancePage() {
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                                   <div>
-                                    <p className="text-xs text-gray-400 mb-0.5">Employee Reason</p>
+                                    <p className="text-xs text-gray-400 mb-0.5">
+                                      Employee Reason
+                                    </p>
                                     <p className="text-gray-700 bg-white border rounded-lg px-3 py-2">
-                                      {record.delayReason || <span className="text-gray-300 italic">No reason provided</span>}
+                                      {record.delayReason || (
+                                        <span className="text-gray-300 italic">
+                                          No reason provided
+                                        </span>
+                                      )}
                                     </p>
                                   </div>
                                   {record.delayStatus !== "PENDING" && (
                                     <div>
-                                      <p className="text-xs text-gray-400 mb-0.5">Admin Remarks</p>
+                                      <p className="text-xs text-gray-400 mb-0.5">
+                                        Admin Remarks
+                                      </p>
                                       <p className="text-gray-700 bg-white border rounded-lg px-3 py-2">
-                                        {record.adminRemarks || <span className="text-gray-300 italic">None</span>}
+                                        {record.adminRemarks || (
+                                          <span className="text-gray-300 italic">
+                                            None
+                                          </span>
+                                        )}
                                       </p>
                                     </div>
                                   )}
@@ -539,42 +782,74 @@ export default function AdminAttendancePage() {
                                 {record.delayStatus === "PENDING" && (
                                   <div className="space-y-2">
                                     <div>
-                                      <label className="text-xs text-gray-400 mb-1 block">Admin Remarks (optional)</label>
+                                      <label className="text-xs text-gray-400 mb-1 block">
+                                        Admin Remarks (optional)
+                                      </label>
                                       <input
                                         type="text"
                                         value={remarks[record._id] || ""}
-                                        onChange={(e) => setRemarks((prev) => ({ ...prev, [record._id]: e.target.value }))}
+                                        onChange={(e) =>
+                                          setRemarks((prev) => ({
+                                            ...prev,
+                                            [record._id]: e.target.value,
+                                          }))
+                                        }
                                         placeholder="Add a remark..."
                                         className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                                       />
                                     </div>
                                     <div className="flex gap-2">
                                       <button
-                                        onClick={() => handleDelayAction(record._id, "APPROVED")}
-                                        disabled={actionLoading === record._id + "APPROVED"}
+                                        onClick={() =>
+                                          handleDelayAction(
+                                            record._id,
+                                            "APPROVED",
+                                          )
+                                        }
+                                        disabled={
+                                          actionLoading ===
+                                          record._id + "APPROVED"
+                                        }
                                         className="flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition disabled:opacity-50"
                                       >
                                         <CheckCircle className="w-3.5 h-3.5" />
-                                        {actionLoading === record._id + "APPROVED" ? "Approving..." : "Approve"}
+                                        {actionLoading ===
+                                        record._id + "APPROVED"
+                                          ? "Approving..."
+                                          : "Approve"}
                                       </button>
                                       <button
-                                        onClick={() => handleDelayAction(record._id, "REJECTED")}
-                                        disabled={actionLoading === record._id + "REJECTED"}
+                                        onClick={() =>
+                                          handleDelayAction(
+                                            record._id,
+                                            "REJECTED",
+                                          )
+                                        }
+                                        disabled={
+                                          actionLoading ===
+                                          record._id + "REJECTED"
+                                        }
                                         className="flex items-center gap-1.5 bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition disabled:opacity-50"
                                       >
                                         <XCircle className="w-3.5 h-3.5" />
-                                        {actionLoading === record._id + "REJECTED" ? "Rejecting..." : "Reject"}
+                                        {actionLoading ===
+                                        record._id + "REJECTED"
+                                          ? "Rejecting..."
+                                          : "Reject"}
                                       </button>
                                     </div>
                                   </div>
                                 )}
                                 {record.delayStatus !== "PENDING" && (
                                   <div className="flex items-center gap-2 text-xs text-gray-400">
-                                    {record.delayStatus === "APPROVED"
-                                      ? <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-                                      : <XCircle className="w-3.5 h-3.5 text-red-500" />}
+                                    {record.delayStatus === "APPROVED" ? (
+                                      <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                                    ) : (
+                                      <XCircle className="w-3.5 h-3.5 text-red-500" />
+                                    )}
                                     {record.delayStatus} by {record.approvedBy}
-                                    {record.approvedAt && ` on ${formatDate(record.approvedAt)}`}
+                                    {record.approvedAt &&
+                                      ` on ${formatDate(record.approvedAt)}`}
                                   </div>
                                 )}
                               </div>

@@ -209,7 +209,7 @@ export default function AdminAttendancePage() {
           },
         );
         const data = await res.json();
-        // console.log("data.data", data.data)
+        console.log("data.data", data.data)
         if (data.success) setSummary(data.data);
       } catch (err) {
         console.error(err);

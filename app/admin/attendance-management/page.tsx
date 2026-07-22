@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   Users,
-  Clock,
   CheckCircle,
   XCircle,
   Search,
@@ -15,13 +14,7 @@ import {
   Monitor,
   Home,
   AlertCircle,
-  Download,
   FileSpreadsheet,
-  X,
-  Eye,
-  Loader2,
-  ChevronRight,
-  TrendingUp,
 } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
 import { useRouter } from "next/navigation";
@@ -107,6 +100,7 @@ export default function AdminAttendancePage() {
   2;
   const [activeTab, setActiveTab] = useState<ActiveTab>("records");
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [allPendingRecords, setAllPendingRecords] = useState<AttendanceRecord[]>([]);
   const [summary, setSummary] = useState<EmployeeSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -125,6 +119,7 @@ export default function AdminAttendancePage() {
   const currentMonth = new Date().toISOString().slice(0, 7);
 
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [pendingFilter, setPendingFilter] = useState<"this_month" | "all">("all");
 
   useEffect(() => {
     if (authLoading) return;
@@ -134,7 +129,29 @@ export default function AdminAttendancePage() {
     }
     if (activeTab === "records" || activeTab === "pending") fetchRecords(token);
     else fetchSummary(token);
-  }, [token, authLoading, activeTab, selectedMonth]);
+    fetchAllPendingRecords(token);
+  }, [token, authLoading, activeTab, selectedMonth, pendingFilter]);
+
+  // Fetch all pending records for badge count
+  const fetchAllPendingRecords = useCallback(
+    async (authToken: string) => {
+      try {
+        const res = await fetch(
+          `${API}/api/attendance/admin/all?lateOnly=true`,
+          {
+            headers: { Authorization: `Bearer ${authToken}` },
+          },
+        );
+        const data = await res.json();
+        if (data.success) {
+          setAllPendingRecords(data.data || []);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    },
+    [],
+  );
 
   const fetchRecords = useCallback(
     async (authToken: string) => {
@@ -170,12 +187,32 @@ export default function AdminAttendancePage() {
         if (data.success) {
           let filtered = data.data as AttendanceRecord[];
 
-          // Filter by selected month
-          filtered = filtered.filter((record) => {
-            const recordMonth = new Date(record.date).toISOString().slice(0, 7);
+          // Helper to get month from date (handles both timestamp and date string)
+          const getRecordMonth = (dateValue: string | number) => {
+            const date = new Date(dateValue);
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          };
 
-            return recordMonth === selectedMonth;
-          });
+          // For pending tab:
+          // - "All" shows ALL pending records (no month filter)
+          // - Any other filter (including "This Month"): filter by selectedMonth
+          if (activeTab === "pending") {
+            if (pendingFilter === "all") {
+              // "All" - no month filter
+            } else {
+              // Filter by selectedMonth
+              filtered = filtered.filter((record) => {
+                const recordMonth = getRecordMonth(record.date);
+                return recordMonth === selectedMonth;
+              });
+            }
+          } else {
+            // Filter by selected month for records tab
+            filtered = filtered.filter((record) => {
+              const recordMonth = getRecordMonth(record.date);
+              return recordMonth === selectedMonth;
+            });
+          }
 
           if (searchEmpId.trim()) {
             filtered = filtered.filter((r) =>
@@ -193,7 +230,7 @@ export default function AdminAttendancePage() {
         setLoading(false);
       }
     },
-    [filterDate, lateOnly, searchEmpId, activeTab, selectedMonth],
+    [filterDate, lateOnly, searchEmpId, activeTab, selectedMonth, pendingFilter],
   );
 
   // console.log(records);
@@ -220,12 +257,7 @@ export default function AdminAttendancePage() {
     [selectedMonth],
   );
 
-  const {
-    data: employees = [],
-    isLoading: empLoading,
-    error: empError,
-    refetch: fetchEmployees,
-  } = useQuery({
+  const { data: employees = [] } = useQuery({
     queryKey: ["employees"],
 
     queryFn: async () => {
@@ -313,7 +345,7 @@ export default function AdminAttendancePage() {
     if (token) fetchRecords(token);
   };
 
-  const pendingCount = records.filter(
+  const pendingCount = allPendingRecords.filter(
     (r) => r.markedLate && r.delayStatus === "PENDING",
   ).length;
   const displayRecords =
@@ -335,15 +367,7 @@ export default function AdminAttendancePage() {
 
       <div className="space-y-6 p-4 sm:p-8">
         {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              Attendance Management
-            </h2>
-            <p className="text-sm text-gray-400 mt-0.5">
-              Monitor, filter, and manage employee attendance
-            </p>
-          </div>
+        <div className="fixed bottom-6 right-6">
           <button
             onClick={() =>
               token &&
@@ -351,7 +375,7 @@ export default function AdminAttendancePage() {
                 ? fetchSummary(token)
                 : fetchRecords(token))
             }
-            className="flex items-center gap-2 text-sm border rounded-lg px-3 py-2 text-gray-600 hover:bg-gray-50 transition"
+            className="flex items-center bg-white gap-2 text-sm border rounded-lg px-3 py-2 text-gray-600 hover:bg-gray-50 transition"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Refresh
@@ -416,7 +440,7 @@ export default function AdminAttendancePage() {
         {activeTab === "records" && (
           <div className="bg-white rounded-2xl border shadow-sm p-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-end gap-4">
-              <div className="flex-1 min-w-[140px]">
+              <div className="flex-1 min-w-35">
                 <label className="text-xs text-gray-400 mb-1 block">
                   Employee ID
                 </label>
@@ -432,7 +456,7 @@ export default function AdminAttendancePage() {
                 </div>
               </div>
 
-              <div className="min-w-[140px]">
+              <div className="min-w-35">
                 <label className="text-xs text-gray-400 mb-1 block">
                   Select Date
                 </label>
@@ -444,7 +468,7 @@ export default function AdminAttendancePage() {
                 />
               </div>
 
-              <div className="min-w-[140px]">
+              <div className="min-w-35">
                 <label className="text-xs text-gray-400 mb-1 block">
                   Select Month
                 </label>
@@ -483,6 +507,60 @@ export default function AdminAttendancePage() {
                   Reset
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Pending Tab Filters ── */}
+        {activeTab === "pending" && (
+          <div className="bg-white rounded-2xl border shadow-sm p-4">
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Month Selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500 font-medium">Month:</span>
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => {
+                    setSelectedMonth(e.target.value);
+                    // Auto-switch to filtered mode when user selects a month
+                    if (pendingFilter === "all") {
+                      setPendingFilter("this_month");
+                    }
+                  }}
+                  className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Filter Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500 font-medium">Filter:</span>
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setPendingFilter("this_month")}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition ${
+                      pendingFilter === "this_month"
+                        ? "bg-white shadow-sm text-gray-900"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    This Month
+                  </button>
+                  <button
+                    onClick={() => setPendingFilter("all")}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition ${
+                      pendingFilter === "all"
+                        ? "bg-white shadow-sm text-gray-900"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    All
+                  </button>
+                </div>
+              </div>
+              <span className="text-sm text-gray-400">
+                {displayRecords.length} pending approval{displayRecords.length !== 1 ? "s" : ""}
+              </span>
             </div>
           </div>
         )}

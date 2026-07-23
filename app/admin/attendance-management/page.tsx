@@ -26,6 +26,7 @@ const API = process.env.NEXT_PUBLIC_API_URL;
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
 type DelayStatus = "PENDING" | "APPROVED" | "REJECTED";
+type EarlyCheckoutStatus = "PENDING" | "APPROVED" | "REJECTED" | "NOT_APPLICABLE";
 
 interface AttendanceRecord {
   _id: string;
@@ -41,6 +42,14 @@ interface AttendanceRecord {
   approvedAt?: string;
   status: "PRESENT" | "ABSENT";
   employee: { employeeId: string; email: string; role: string };
+
+  isEarlyCheckout?: boolean;
+  earlyCheckoutReason?: string;
+  earlyCheckoutStatus?: EarlyCheckoutStatus;
+  earlyCheckoutRemarks?: string;
+  earlyCheckoutApprovedBy?: string;
+  earlyCheckoutApprovedAt?: string;
+  workingHours?: number;
 }
 
 interface EmployeeSummary {
@@ -90,14 +99,30 @@ const DELAY_BADGE: Record<DelayStatus, { label: string; className: string }> = {
   },
 };
 
-/* ─── Export Modal ───────────────────────────────────────────────────────── */
+const EARLY_CHECKOUT_BADGE: Record<
+  Exclude<EarlyCheckoutStatus, "NOT_APPLICABLE">,
+  { label: string; className: string }
+> = {
+  PENDING: {
+    label: "Pending",
+    className: "bg-orange-100 text-orange-700 border border-orange-200",
+  },
+  APPROVED: {
+    label: "Approved",
+    className: "bg-blue-100 text-blue-700 border border-blue-200",
+  },
+  REJECTED: {
+    label: "Rejected",
+    className: "bg-red-100 text-red-700 border border-red-200",
+  },
+};
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 
 export default function AdminAttendancePage() {
   const { token, loading: authLoading } = useAuth();
   const router = useRouter();
-  2;
+
   const [activeTab, setActiveTab] = useState<ActiveTab>("records");
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [allPendingRecords, setAllPendingRecords] = useState<AttendanceRecord[]>([]);
@@ -106,15 +131,13 @@ export default function AdminAttendancePage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [remarks, setRemarks] = useState<Record<string, string>>({});
+  const [checkoutRemarks, setCheckoutRemarks] = useState<Record<string, string>>({});
   const [showExport, setShowExport] = useState(false);
 
   // Filters
   const [searchEmpId, setSearchEmpId] = useState("");
   const [filterDate, setFilterDate] = useState("");
   const [lateOnly, setLateOnly] = useState(false);
-  // const [selectedMonth, setSelectedMonth] = useState(
-  //   new Date().toISOString().slice(0, 7),
-  // );
 
   const currentMonth = new Date().toISOString().slice(0, 7);
 
@@ -132,26 +155,20 @@ export default function AdminAttendancePage() {
     fetchAllPendingRecords(token);
   }, [token, authLoading, activeTab, selectedMonth, pendingFilter]);
 
-  // Fetch all pending records for badge count
-  const fetchAllPendingRecords = useCallback(
-    async (authToken: string) => {
-      try {
-        const res = await fetch(
-          `${API}/api/attendance/admin/all?lateOnly=true`,
-          {
-            headers: { Authorization: `Bearer ${authToken}` },
-          },
-        );
-        const data = await res.json();
-        if (data.success) {
-          setAllPendingRecords(data.data || []);
-        }
-      } catch (err) {
-        console.error(err);
+  // Fetch all pending records for badge count (covers both late + early-checkout)
+  const fetchAllPendingRecords = useCallback(async (authToken: string) => {
+    try {
+      const res = await fetch(`${API}/api/attendance/admin/all`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAllPendingRecords(data.data || []);
       }
-    },
-    [],
-  );
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
 
   const fetchRecords = useCallback(
     async (authToken: string) => {
@@ -159,8 +176,8 @@ export default function AdminAttendancePage() {
         setLoading(true);
         const params = new URLSearchParams();
         if (filterDate) params.set("date", filterDate);
-        if (activeTab === "pending") params.set("lateOnly", "true");
-        else if (lateOnly) params.set("lateOnly", "true");
+        // Pending tab fetches everything (late + early-checkout); filtering happens client-side via isPendingRecord
+        if (activeTab !== "pending" && lateOnly) params.set("lateOnly", "true");
 
         const res = await fetch(
           `${API}/api/attendance/admin/all?${params.toString()}`,
@@ -173,24 +190,13 @@ export default function AdminAttendancePage() {
           return;
         }
         const data = await res.json();
-        // if (data.success) {
-        //   let filtered = data.data as AttendanceRecord[];
-        //   if (searchEmpId.trim()) {
-        //     filtered = filtered.filter((r) =>
-        //       r.employee?.employeeId
-        //         ?.toLowerCase()
-        //         .includes(searchEmpId.toLowerCase()),
-        //     );
-        //   }
-        //   setRecords(filtered);
-        // }
         if (data.success) {
           let filtered = data.data as AttendanceRecord[];
 
           // Helper to get month from date (handles both timestamp and date string)
           const getRecordMonth = (dateValue: string | number) => {
             const date = new Date(dateValue);
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
           };
 
           // For pending tab:
@@ -200,7 +206,6 @@ export default function AdminAttendancePage() {
             if (pendingFilter === "all") {
               // "All" - no month filter
             } else {
-              // Filter by selectedMonth
               filtered = filtered.filter((record) => {
                 const recordMonth = getRecordMonth(record.date);
                 return recordMonth === selectedMonth;
@@ -233,8 +238,6 @@ export default function AdminAttendancePage() {
     [filterDate, lateOnly, searchEmpId, activeTab, selectedMonth, pendingFilter],
   );
 
-  // console.log(records);
-
   const fetchSummary = useCallback(
     async (authToken: string) => {
       try {
@@ -246,7 +249,6 @@ export default function AdminAttendancePage() {
           },
         );
         const data = await res.json();
-        console.log("data.data", data.data)
         if (data.success) setSummary(data.data);
       } catch (err) {
         console.error(err);
@@ -259,7 +261,6 @@ export default function AdminAttendancePage() {
 
   const { data: employees = [] } = useQuery({
     queryKey: ["employees"],
-
     queryFn: async () => {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/admin/employees`,
@@ -273,20 +274,16 @@ export default function AdminAttendancePage() {
 
       const data = await res.json();
 
-      // console.log(data)
-
       if (!res.ok) {
         throw new Error(data.message || "Failed to fetch employees");
       }
 
       return data.data;
     },
-
     enabled: !!token,
   });
 
-  console.log("employee", employees);
-
+  // ── Late check-in approval ────────────────────────────────────────────
   const handleDelayAction = async (
     attendanceId: string,
     status: "APPROVED" | "REJECTED",
@@ -314,14 +311,62 @@ export default function AdminAttendancePage() {
           prev.map((r) =>
             r._id === attendanceId
               ? {
-                  ...r,
-                  delayStatus: status,
-                  adminRemarks: remarks[attendanceId] || "",
-                }
+                ...r,
+                delayStatus: status,
+                adminRemarks: remarks[attendanceId] || "",
+              }
               : r,
           ),
         );
-        setExpandedRow(null);
+        // Intentionally NOT collapsing the row here — if this record also has
+        // a pending early checkout, the admin still needs access to that section.
+      } else {
+        alert(data.message);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // ── Early checkout approval ───────────────────────────────────────────
+  const handleEarlyCheckoutAction = async (
+    attendanceId: string,
+    status: "APPROVED" | "REJECTED",
+  ) => {
+    if (!token) return;
+    try {
+      setActionLoading(attendanceId + "EC" + status); // distinct key from delay action
+      const res = await fetch(
+        `${API}/api/attendance/admin/${attendanceId}/early-checkout-action`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            status,
+            adminRemarks: checkoutRemarks[attendanceId] || "",
+          }),
+        },
+      );
+      const data = await res.json();
+      if (data.success) {
+        setRecords((prev) =>
+          prev.map((r) =>
+            r._id === attendanceId
+              ? {
+                ...r,
+                earlyCheckoutStatus: status,
+                earlyCheckoutRemarks: checkoutRemarks[attendanceId] || "",
+              }
+              : r,
+          ),
+        );
+        // Intentionally NOT collapsing the row here — same reasoning as delay action above.
       } else {
         alert(data.message);
       }
@@ -345,13 +390,13 @@ export default function AdminAttendancePage() {
     if (token) fetchRecords(token);
   };
 
-  const pendingCount = allPendingRecords.filter(
-    (r) => r.markedLate && r.delayStatus === "PENDING",
-  ).length;
+  const isPendingRecord = (r: AttendanceRecord) =>
+    (r.markedLate && r.delayStatus === "PENDING") ||
+    (r.isEarlyCheckout && r.earlyCheckoutStatus === "PENDING");
+
+  const pendingCount = allPendingRecords.filter(isPendingRecord).length;
   const displayRecords =
-    activeTab === "pending"
-      ? records.filter((r) => r.markedLate && r.delayStatus === "PENDING")
-      : records;
+    activeTab === "pending" ? records.filter(isPendingRecord) : records;
 
   /* ─── Render ─────────────────────────────────────────────────────────── */
 
@@ -416,11 +461,10 @@ export default function AdminAttendancePage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${
-                activeTab === tab.id
-                  ? "bg-white shadow-sm text-gray-900"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === tab.id
+                ? "bg-white shadow-sm text-gray-900"
+                : "text-gray-500 hover:text-gray-700"
+                }`}
             >
               {tab.icon}
               <span className="hidden xs:inline">
@@ -523,7 +567,6 @@ export default function AdminAttendancePage() {
                   value={selectedMonth}
                   onChange={(e) => {
                     setSelectedMonth(e.target.value);
-                    // Auto-switch to filtered mode when user selects a month
                     if (pendingFilter === "all") {
                       setPendingFilter("this_month");
                     }
@@ -538,28 +581,27 @@ export default function AdminAttendancePage() {
                 <div className="flex bg-gray-100 rounded-lg p-1">
                   <button
                     onClick={() => setPendingFilter("this_month")}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition ${
-                      pendingFilter === "this_month"
-                        ? "bg-white shadow-sm text-gray-900"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition ${pendingFilter === "this_month"
+                      ? "bg-white shadow-sm text-gray-900"
+                      : "text-gray-500 hover:text-gray-700"
+                      }`}
                   >
                     This Month
                   </button>
                   <button
                     onClick={() => setPendingFilter("all")}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition ${
-                      pendingFilter === "all"
-                        ? "bg-white shadow-sm text-gray-900"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition ${pendingFilter === "all"
+                      ? "bg-white shadow-sm text-gray-900"
+                      : "text-gray-500 hover:text-gray-700"
+                      }`}
                   >
                     All
                   </button>
                 </div>
               </div>
               <span className="text-sm text-gray-400">
-                {displayRecords.length} pending approval{displayRecords.length !== 1 ? "s" : ""}
+                {displayRecords.length} pending approval
+                {displayRecords.length !== 1 ? "s" : ""}
               </span>
             </div>
           </div>
@@ -632,8 +674,8 @@ export default function AdminAttendancePage() {
                         const pct =
                           emp?.workingDays && emp?.workingDays > 0
                             ? Math.round(
-                                (emp.presentDays / emp.workingDays) * 100,
-                              )
+                              (emp.presentDays / emp.workingDays) * 100,
+                            )
                             : 0;
                         return (
                           <tr key={emp.employeeId} className="hover:bg-gray-50">
@@ -696,7 +738,7 @@ export default function AdminAttendancePage() {
             <div className="px-6 py-4 border-b flex items-center justify-between">
               <h3 className="font-semibold text-gray-900">
                 {activeTab === "pending"
-                  ? "Pending Late Approvals"
+                  ? "Pending Approvals"
                   : "Attendance Records"}
               </h3>
               <span className="text-xs text-gray-400">
@@ -742,12 +784,13 @@ export default function AdminAttendancePage() {
                     displayRecords.map((record) => (
                       <React.Fragment key={record._id}>
                         <tr
-                          className={`hover:bg-gray-50 transition ${
-                            record.markedLate &&
-                            record.delayStatus === "PENDING"
-                              ? "bg-yellow-50/30"
-                              : ""
-                          }`}
+                          className={`hover:bg-gray-50 transition ${(record.markedLate &&
+                            record.delayStatus === "PENDING") ||
+                            (record.isEarlyCheckout &&
+                              record.earlyCheckoutStatus === "PENDING")
+                            ? "bg-yellow-50/30"
+                            : ""
+                            }`}
                         >
                           <td className="px-6 py-4">
                             <p className="font-medium text-gray-800 text-sm">
@@ -781,24 +824,47 @@ export default function AdminAttendancePage() {
                             )}
                           </td>
                           <td className="px-6 py-4">
-                            {record.markedLate ? (
-                              <span
-                                className={`px-2.5 py-1 rounded-full text-xs font-medium ${DELAY_BADGE[record.delayStatus ?? "PENDING"].className}`}
-                              >
-                                Late ·{" "}
-                                {
-                                  DELAY_BADGE[record.delayStatus ?? "PENDING"]
-                                    .label
-                                }
-                              </span>
-                            ) : (
-                              <span className="px-2.5 py-1 bg-green-100 text-green-700 border border-green-200 rounded-full text-xs font-medium">
-                                On Time
-                              </span>
-                            )}
+                            <div className="flex flex-col gap-1">
+                              {record.markedLate && (
+                                <span
+                                  className={`w-fit px-2.5 py-1 rounded-full text-xs font-medium ${DELAY_BADGE[record.delayStatus ?? "PENDING"].className}`}
+                                >
+                                  Late ·{" "}
+                                  {DELAY_BADGE[record.delayStatus ?? "PENDING"].label}
+                                </span>
+                              )}
+                              {record.isEarlyCheckout && (
+                                <span
+                                  className={`w-fit px-2.5 py-1 rounded-full text-xs font-medium ${EARLY_CHECKOUT_BADGE[
+                                    (record.earlyCheckoutStatus ??
+                                      "PENDING") as Exclude<
+                                        EarlyCheckoutStatus,
+                                        "NOT_APPLICABLE"
+                                      >
+                                  ].className
+                                    }`}
+                                >
+                                  Early Out ·{" "}
+                                  {
+                                    EARLY_CHECKOUT_BADGE[
+                                      (record.earlyCheckoutStatus ??
+                                        "PENDING") as Exclude<
+                                          EarlyCheckoutStatus,
+                                          "NOT_APPLICABLE"
+                                        >
+                                    ].label
+                                  }
+                                </span>
+                              )}
+                              {!record.markedLate && !record.isEarlyCheckout && (
+                                <span className="w-fit px-2.5 py-1 bg-green-100 text-green-700 border border-green-200 rounded-full text-xs font-medium">
+                                  On Time
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4">
-                            {record.markedLate && (
+                            {(record.markedLate || record.isEarlyCheckout) && (
                               <button
                                 onClick={() =>
                                   setExpandedRow(
@@ -819,121 +885,187 @@ export default function AdminAttendancePage() {
                           </td>
                         </tr>
 
-                        {expandedRow === record._id && record.markedLate && (
-                          <tr
-                            key={`${record._id}-detail`}
-                            className="bg-amber-50/60"
-                          >
-                            <td colSpan={7} className="px-6 py-5">
-                              <div className="space-y-3 max-w-2xl">
-                                <div className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
-                                  Late Check-in Details
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                                  <div>
-                                    <p className="text-xs text-gray-400 mb-0.5">
-                                      Employee Reason
-                                    </p>
-                                    <p className="text-gray-700 bg-white border rounded-lg px-3 py-2">
-                                      {record.delayReason || (
-                                        <span className="text-gray-300 italic">
-                                          No reason provided
-                                        </span>
-                                      )}
-                                    </p>
-                                  </div>
-                                  {record.delayStatus !== "PENDING" && (
-                                    <div>
-                                      <p className="text-xs text-gray-400 mb-0.5">
-                                        Admin Remarks
-                                      </p>
-                                      <p className="text-gray-700 bg-white border rounded-lg px-3 py-2">
-                                        {record.adminRemarks || (
-                                          <span className="text-gray-300 italic">
-                                            None
-                                          </span>
+                        {expandedRow === record._id &&
+                          (record.markedLate || record.isEarlyCheckout) && (
+                            <tr key={`${record._id}-detail`} className="bg-amber-50/60">
+                              <td colSpan={7} className="px-6 py-5">
+                                {/* Increased max-width to give the multi-column rows breathing room */}
+                                <div className="space-y-6 max-w-5xl">
+
+                                  {/* ── Late check-in section ── */}
+                                  {record.markedLate && (
+                                    <div className="space-y-3">
+                                      <div className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
+                                        Late Check-in Details
+                                      </div>
+
+                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start text-sm">
+                                        {/* Column 1: Employee Reason */}
+                                        <div>
+                                          <p className="text-xs text-gray-400 mb-0.5">Employee Reason</p>
+                                          <p className="text-gray-700 bg-white border rounded-lg px-3 py-2 min-h-[40px] flex items-center">
+                                            {record.delayReason || (
+                                              <span className="text-gray-300 italic">No reason provided</span>
+                                            )}
+                                          </p>
+                                        </div>
+
+                                        {/* Column 2: Admin Remarks View/Input */}
+                                        {record.delayStatus !== "PENDING" ? (
+                                          <div>
+                                            <p className="text-xs text-gray-400 mb-0.5">Admin Remarks</p>
+                                            <p className="text-gray-700 bg-white border rounded-lg px-3 py-2 min-h-[40px] flex items-center">
+                                              {record.adminRemarks || <span className="text-gray-300 italic">None</span>}
+                                            </p>
+                                          </div>
+                                        ) : (
+                                          <div className="space-y-1.5">
+                                            <label className="text-xs text-gray-400 block">Admin Remarks (optional)</label>
+                                            <input
+                                              type="text"
+                                              value={remarks[record._id] || ""}
+                                              onChange={(e) =>
+                                                setRemarks((prev) => ({ ...prev, [record._id]: e.target.value }))
+                                              }
+                                              placeholder="Add a remark..."
+                                              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                            />
+                                          </div>
                                         )}
-                                      </p>
+
+                                        {/* Column 3: Action Buttons / Status Indicator */}
+                                        {record.delayStatus === "PENDING" ? (
+                                          <div className="flex gap-2 pt-4 md:pt-4.5">
+                                            <button
+                                              onClick={() => handleDelayAction(record._id, "APPROVED")}
+                                              disabled={actionLoading === record._id + "APPROVED"}
+                                              className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition disabled:opacity-50"
+                                            >
+                                              <CheckCircle className="w-3.5 h-3.5" />
+                                              {actionLoading === record._id + "APPROVED" ? "Approving..." : "Approve"}
+                                            </button>
+                                            <button
+                                              onClick={() => handleDelayAction(record._id, "REJECTED")}
+                                              disabled={actionLoading === record._id + "REJECTED"}
+                                              className="flex-1 flex items-center justify-center gap-1.5 bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition disabled:opacity-50"
+                                            >
+                                              <XCircle className="w-3.5 h-3.5" />
+                                              {actionLoading === record._id + "REJECTED" ? "Rejecting..." : "Reject"}
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center gap-2 text-xs text-gray-400 pt-6">
+                                            {record.delayStatus === "APPROVED" ? (
+                                              <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                                            ) : (
+                                              <XCircle className="w-3.5 h-3.5 text-red-500" />
+                                            )}
+                                            <span>
+                                              {record.delayStatus} by {record.approvedBy}
+                                              {record.approvedAt && ` on ${formatDate(record.approvedAt)}`}
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   )}
+
+                                  {/* Divider only when both sections are present */}
+                                  {record.markedLate && record.isEarlyCheckout && (
+                                    <div className="border-t border-gray-200" />
+                                  )}
+
+                                  {/* ── Early checkout section ── */}
+{record.isEarlyCheckout && (
+  <div className="space-y-3">
+    <div className="text-xs font-semibold text-orange-700 uppercase tracking-wide">
+      Early Checkout Details
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end text-sm">
+      {/* Column 1: Employee Reason with Inline Working Hours */}
+      <div>
+        <div className="flex items-center justify-between mb-0.5">
+          <p className="text-xs text-gray-400">Employee Reason</p>
+          {typeof record.workingHours === "number" && (
+            <span className="text-[11px] font-medium text-orange-700 bg-orange-100/70 px-1.5 py-0.5 rounded">
+              ⏱️ {(record.workingHours / 60).toFixed(1)} hrs worked
+            </span>
+          )}
+        </div>
+        <p className="text-gray-700 bg-white border rounded-lg px-3 py-2 h-[40px] flex items-center shadow-sm">
+          {record.earlyCheckoutReason || (
+            <span className="text-gray-300 italic">No reason provided</span>
+          )}
+        </p>
+      </div>
+
+      {/* Column 2: Admin Remarks View/Input */}
+      {record.earlyCheckoutStatus !== "PENDING" ? (
+        <div>
+          <p className="text-xs text-gray-400 mb-0.5">Admin Remarks</p>
+          <p className="text-gray-700 bg-white border rounded-lg px-3 py-2 h-[40px] flex items-center shadow-sm">
+            {record.earlyCheckoutRemarks || <span className="text-gray-300 italic">None</span>}
+          </p>
+        </div>
+      ) : (
+        <div>
+          <label className="text-xs text-gray-400 block mb-0.5">Admin Remarks (optional)</label>
+          <input
+            type="text"
+            value={checkoutRemarks[record._id] || ""}
+            onChange={(e) =>
+              setCheckoutRemarks((prev) => ({ ...prev, [record._id]: e.target.value }))
+            }
+            placeholder="Add a remark..."
+            className="w-full border rounded-lg px-3 py-2 text-sm h-[40px] focus:outline-none focus:ring-2 focus:ring-orange-400 shadow-sm"
+          />
+        </div>
+      )}
+
+      {/* Column 3: Action Buttons / Status Indicator */}
+      {record.earlyCheckoutStatus === "PENDING" ? (
+        <div className="flex gap-2 h-[40px]">
+          <button
+            onClick={() => handleEarlyCheckoutAction(record._id, "APPROVED")}
+            disabled={actionLoading === record._id + "ECAPPROVED"}
+            className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition disabled:opacity-50 font-medium shadow-sm"
+          >
+            <CheckCircle className="w-3.5 h-3.5" />
+            {actionLoading === record._id + "ECAPPROVED" ? "Approving..." : "Approve"}
+          </button>
+          <button
+            onClick={() => handleEarlyCheckoutAction(record._id, "REJECTED")}
+            disabled={actionLoading === record._id + "ECREJECTED"}
+            className="flex-1 flex items-center justify-center gap-1.5 bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition disabled:opacity-50 font-medium shadow-sm"
+          >
+            <XCircle className="w-3.5 h-3.5" />
+            {actionLoading === record._id + "ECREJECTED" ? "Rejecting..." : "Reject"}
+          </button>
+        </div>
+      ) : (
+        record.earlyCheckoutStatus !== "NOT_APPLICABLE" && (
+          <div className="flex items-center gap-2 text-xs text-gray-400 h-[40px]">
+            {record.earlyCheckoutStatus === "APPROVED" ? (
+              <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+            ) : (
+              <XCircle className="w-3.5 h-3.5 text-red-500" />
+            )}
+            <span>
+              {record.earlyCheckoutStatus} by {record.earlyCheckoutApprovedBy}
+              {record.earlyCheckoutApprovedAt && ` on ${formatDate(record.earlyCheckoutApprovedAt)}`}
+            </span>
+          </div>
+        )
+      )}
+    </div>
+  </div>
+)}
+
                                 </div>
-                                {record.delayStatus === "PENDING" && (
-                                  <div className="space-y-2">
-                                    <div>
-                                      <label className="text-xs text-gray-400 mb-1 block">
-                                        Admin Remarks (optional)
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={remarks[record._id] || ""}
-                                        onChange={(e) =>
-                                          setRemarks((prev) => ({
-                                            ...prev,
-                                            [record._id]: e.target.value,
-                                          }))
-                                        }
-                                        placeholder="Add a remark..."
-                                        className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                      />
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <button
-                                        onClick={() =>
-                                          handleDelayAction(
-                                            record._id,
-                                            "APPROVED",
-                                          )
-                                        }
-                                        disabled={
-                                          actionLoading ===
-                                          record._id + "APPROVED"
-                                        }
-                                        className="flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition disabled:opacity-50"
-                                      >
-                                        <CheckCircle className="w-3.5 h-3.5" />
-                                        {actionLoading ===
-                                        record._id + "APPROVED"
-                                          ? "Approving..."
-                                          : "Approve"}
-                                      </button>
-                                      <button
-                                        onClick={() =>
-                                          handleDelayAction(
-                                            record._id,
-                                            "REJECTED",
-                                          )
-                                        }
-                                        disabled={
-                                          actionLoading ===
-                                          record._id + "REJECTED"
-                                        }
-                                        className="flex items-center gap-1.5 bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition disabled:opacity-50"
-                                      >
-                                        <XCircle className="w-3.5 h-3.5" />
-                                        {actionLoading ===
-                                        record._id + "REJECTED"
-                                          ? "Rejecting..."
-                                          : "Reject"}
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                                {record.delayStatus !== "PENDING" && (
-                                  <div className="flex items-center gap-2 text-xs text-gray-400">
-                                    {record.delayStatus === "APPROVED" ? (
-                                      <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-                                    ) : (
-                                      <XCircle className="w-3.5 h-3.5 text-red-500" />
-                                    )}
-                                    {record.delayStatus} by {record.approvedBy}
-                                    {record.approvedAt &&
-                                      ` on ${formatDate(record.approvedAt)}`}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
+                              </td>
+                            </tr>
+                          )}
                       </React.Fragment>
                     ))
                   )}

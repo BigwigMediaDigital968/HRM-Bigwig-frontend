@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Timer,
   MapPin,
+  LogOut,
 } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
 import { useRouter } from "next/navigation";
@@ -24,6 +25,7 @@ const API = process.env.NEXT_PUBLIC_API_URL;
 /* ─────────────── types ─────────────── */
 
 type DelayStatus = "PENDING" | "APPROVED" | "REJECTED";
+type EarlyCheckoutStatus = "PENDING" | "APPROVED" | "REJECTED" | "NOT_APPLICABLE";
 
 interface AttendanceRecord {
   _id: string;
@@ -36,6 +38,12 @@ interface AttendanceRecord {
   delayStatus?: DelayStatus;
   adminRemarks?: string;
   status: "PRESENT" | "ABSENT";
+
+  isEarlyCheckout?: boolean;
+  earlyCheckoutReason?: string;
+  earlyCheckoutStatus?: EarlyCheckoutStatus;
+  earlyCheckoutRemarks?: string;
+  workingHours?: number;
 }
 
 interface AttendanceSummary {
@@ -47,6 +55,7 @@ interface AttendanceSummary {
   lateDays?: number;
   wfhDays?: number;
   wfoDays?: number;
+  earlyCheckoutDays?: number;
 }
 
 /* ─────────────── helpers ─────────────── */
@@ -85,6 +94,24 @@ const DELAY_STYLES: Record<DelayStatus, string> = {
 };
 
 const DELAY_LABEL: Record<DelayStatus, string> = {
+  PENDING: "Pending",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+};
+
+const EARLY_CHECKOUT_STYLES: Record<
+  Exclude<EarlyCheckoutStatus, "NOT_APPLICABLE">,
+  string
+> = {
+  PENDING: "bg-orange-100 text-orange-700 border border-orange-200",
+  APPROVED: "bg-blue-100 text-blue-700 border border-blue-200",
+  REJECTED: "bg-red-100 text-red-700 border border-red-200",
+};
+
+const EARLY_CHECKOUT_LABEL: Record<
+  Exclude<EarlyCheckoutStatus, "NOT_APPLICABLE">,
+  string
+> = {
   PENDING: "Pending",
   APPROVED: "Approved",
   REJECTED: "Rejected",
@@ -346,16 +373,18 @@ export default function AttendancePage() {
                     record.checkOutTime,
                   );
                   const isActive = !!record.checkInTime && !record.checkOutTime;
+                  const hasExpandableDetail =
+                    record.markedLate || record.isEarlyCheckout;
 
                   return (
                     <React.Fragment key={record._id}>
                       <tr
-                        className={`hover:bg-gray-50/70 transition-colors ${record.markedLate
+                        className={`hover:bg-gray-50/70 transition-colors ${hasExpandableDetail
                           ? "cursor-pointer"
                           : "cursor-default"
                           }`}
                         onClick={() => {
-                          if (record.markedLate)
+                          if (hasExpandableDetail)
                             setExpandedRow(isExpanded ? null : record._id);
                         }}
                       >
@@ -420,26 +449,53 @@ export default function AttendancePage() {
                           )}
                         </td>
 
-                        {/* status badge */}
+                        {/* status badge(s) */}
                         <td className="px-6 py-4">
-                          {record.markedLate ? (
-                            <span
-                              className={`px-2.5 py-1 rounded-full text-xs font-semibold ${DELAY_STYLES[record.delayStatus ?? "PENDING"]
+                          <div className="flex flex-col gap-1">
+                            {record.markedLate && (
+                              <span
+                                className={`w-fit px-2.5 py-1 rounded-full text-xs font-semibold ${DELAY_STYLES[record.delayStatus ?? "PENDING"]
+                                  }`}
+                              >
+                                Late ·{" "}
+                                {DELAY_LABEL[record.delayStatus ?? "PENDING"]}
+                              </span>
+                            )}
+                            {record.isEarlyCheckout && (
+                              <span
+                                className={`w-fit px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                  EARLY_CHECKOUT_STYLES[
+                                    (record.earlyCheckoutStatus ??
+                                      "PENDING") as Exclude<
+                                      EarlyCheckoutStatus,
+                                      "NOT_APPLICABLE"
+                                    >
+                                  ]
                                 }`}
-                            >
-                              Late ·{" "}
-                              {DELAY_LABEL[record.delayStatus ?? "PENDING"]}
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-xs font-semibold">
-                              On Time
-                            </span>
-                          )}
+                              >
+                                Early Out ·{" "}
+                                {
+                                  EARLY_CHECKOUT_LABEL[
+                                    (record.earlyCheckoutStatus ??
+                                      "PENDING") as Exclude<
+                                      EarlyCheckoutStatus,
+                                      "NOT_APPLICABLE"
+                                    >
+                                  ]
+                                }
+                              </span>
+                            )}
+                            {!record.markedLate && !record.isEarlyCheckout && (
+                              <span className="w-fit px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-xs font-semibold">
+                                On Time
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* expand icon */}
                         <td className="px-4 py-4">
-                          {record.markedLate && (
+                          {hasExpandableDetail && (
                             <div className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-200 transition cursor-pointer">
                               {isExpanded ? (
                                 <ChevronUp className="w-4 h-4 text-gray-600" />
@@ -451,62 +507,131 @@ export default function AttendancePage() {
                         </td>
                       </tr>
 
-                      {/* expanded late detail */}
-                      {isExpanded && record.markedLate && (
+                      {/* expanded detail(s) */}
+                      {isExpanded && hasExpandableDetail && (
                         <tr className="bg-amber-50/60 border-l-2 border-amber-300">
                           <td colSpan={7} className="px-6 py-4">
-                            <div className="max-w-xl space-y-3">
-                              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
-                                <Clock className="w-3.5 h-3.5" />
-                                Late Check-in Details
-                              </p>
+                            <div className="max-w-xl space-y-5">
+                              {/* ── Late check-in detail ── */}
+                              {record.markedLate && (
+                                <div className="space-y-3">
+                                  <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Clock className="w-3.5 h-3.5" />
+                                    Late Check-in Details
+                                  </p>
 
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div className="bg-white rounded-xl border border-amber-100 px-3 py-2.5">
-                                  <p className="text-xs text-gray-400 mb-1">
-                                    Your Reason
-                                  </p>
-                                  <p className="text-sm text-gray-700">
-                                    {record.delayReason?.trim() || (
-                                      <span className="italic text-gray-300">
-                                        No reason provided
-                                      </span>
-                                    )}
-                                  </p>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="bg-white rounded-xl border border-amber-100 px-3 py-2.5">
+                                      <p className="text-xs text-gray-400 mb-1">
+                                        Your Reason
+                                      </p>
+                                      <p className="text-sm text-gray-700">
+                                        {record.delayReason?.trim() || (
+                                          <span className="italic text-gray-300">
+                                            No reason provided
+                                          </span>
+                                        )}
+                                      </p>
+                                    </div>
+
+                                    <div className="bg-white rounded-xl border border-amber-100 px-3 py-2.5">
+                                      <p className="text-xs text-gray-400 mb-1">
+                                        Manager Remarks
+                                      </p>
+                                      <p className="text-sm text-gray-700">
+                                        {record.adminRemarks?.trim() || (
+                                          <span className="italic text-gray-300">
+                                            {record.delayStatus === "PENDING"
+                                              ? "Awaiting review"
+                                              : "No remarks added"}
+                                          </span>
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  {record.delayStatus === "PENDING" && (
+                                    <p className="text-xs text-amber-600/80">
+                                      ⏳ Your late check-in is pending approval
+                                      from your manager.
+                                    </p>
+                                  )}
+                                  {record.delayStatus === "APPROVED" && (
+                                    <p className="text-xs text-blue-600/80">
+                                      ✅ Your late check-in has been approved.
+                                    </p>
+                                  )}
+                                  {record.delayStatus === "REJECTED" && (
+                                    <p className="text-xs text-red-600/80">
+                                      ❌ Your late check-in was not approved.
+                                      This may affect your attendance record.
+                                    </p>
+                                  )}
                                 </div>
+                              )}
 
-                                <div className="bg-white rounded-xl border border-amber-100 px-3 py-2.5">
-                                  <p className="text-xs text-gray-400 mb-1">
-                                    Manager Remarks
+                              {/* Divider only when both details are present */}
+                              {record.markedLate && record.isEarlyCheckout && (
+                                <div className="border-t border-amber-200" />
+                              )}
+
+                              {/* ── Early checkout detail ── */}
+                              {record.isEarlyCheckout && (
+                                <div className="space-y-3">
+                                  <p className="text-xs font-semibold text-orange-700 uppercase tracking-wider flex items-center gap-1.5">
+                                    <LogOut className="w-3.5 h-3.5" />
+                                    Early Checkout Details
                                   </p>
-                                  <p className="text-sm text-gray-700">
-                                    {record.adminRemarks?.trim() || (
-                                      <span className="italic text-gray-300">
-                                        {record.delayStatus === "PENDING"
-                                          ? "Awaiting review"
-                                          : "No remarks added"}
-                                      </span>
-                                    )}
-                                  </p>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="bg-white rounded-xl border border-orange-100 px-3 py-2.5">
+                                      <p className="text-xs text-gray-400 mb-1">
+                                        Your Reason
+                                      </p>
+                                      <p className="text-sm text-gray-700">
+                                        {record.earlyCheckoutReason?.trim() || (
+                                          <span className="italic text-gray-300">
+                                            No reason provided
+                                          </span>
+                                        )}
+                                      </p>
+                                    </div>
+
+                                    <div className="bg-white rounded-xl border border-orange-100 px-3 py-2.5">
+                                      <p className="text-xs text-gray-400 mb-1">
+                                        Manager Remarks
+                                      </p>
+                                      <p className="text-sm text-gray-700">
+                                        {record.earlyCheckoutRemarks?.trim() || (
+                                          <span className="italic text-gray-300">
+                                            {record.earlyCheckoutStatus ===
+                                            "PENDING"
+                                              ? "Awaiting review"
+                                              : "No remarks added"}
+                                          </span>
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  {record.earlyCheckoutStatus === "PENDING" && (
+                                    <p className="text-xs text-orange-600/80">
+                                      ⏳ Your early checkout is pending approval
+                                      from your manager.
+                                    </p>
+                                  )}
+                                  {record.earlyCheckoutStatus === "APPROVED" && (
+                                    <p className="text-xs text-blue-600/80">
+                                      ✅ Your early checkout has been approved.
+                                    </p>
+                                  )}
+                                  {record.earlyCheckoutStatus === "REJECTED" && (
+                                    <p className="text-xs text-red-600/80">
+                                      ❌ Your early checkout was not approved.
+                                      This may affect your attendance record.
+                                    </p>
+                                  )}
                                 </div>
-                              </div>
-
-                              {record.delayStatus === "PENDING" && (
-                                <p className="text-xs text-amber-600/80">
-                                  ⏳ Your late check-in is pending approval from
-                                  your manager.
-                                </p>
-                              )}
-                              {record.delayStatus === "APPROVED" && (
-                                <p className="text-xs text-blue-600/80">
-                                  ✅ Your late check-in has been approved.
-                                </p>
-                              )}
-                              {record.delayStatus === "REJECTED" && (
-                                <p className="text-xs text-red-600/80">
-                                  ❌ Your late check-in was not approved. This
-                                  may affect your attendance record.
-                                </p>
                               )}
                             </div>
                           </td>
@@ -545,6 +670,10 @@ export default function AttendancePage() {
             <span className="text-amber-500">
               Late: <strong>{summary?.lateDays ?? 0}</strong> day
               {(summary?.lateDays ?? 0) > 1 ? "s" : ""}
+            </span>
+            <span className="text-orange-500">
+              Early Out: <strong>{summary?.earlyCheckoutDays ?? 0}</strong> day
+              {(summary?.earlyCheckoutDays ?? 0) > 1 ? "s" : ""}
             </span>
           </div>
         )}

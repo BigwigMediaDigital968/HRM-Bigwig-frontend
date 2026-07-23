@@ -11,6 +11,8 @@ import {
   LogOut,
   Timer,
   Wifi,
+  X,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -24,6 +26,10 @@ interface TodayRecord {
   markedLate?: boolean;
   workMode?: "WFO" | "WFH";
   delayStatus?: "PENDING" | "APPROVED" | "REJECTED";
+  earlyCheckoutReason?: string;
+  earlyCheckoutStatus?: "PENDING" | "APPROVED" | "REJECTED" | "NOT_APPLICABLE";
+  isEarlyCheckout?: boolean;
+  workingHours?: { minutes: number; formatted: string };
 }
 
 interface MarkAttendanceButtonProps {
@@ -67,6 +73,17 @@ const DELAY_BADGE: Record<string, { label: string; cls: string }> = {
   },
 };
 
+const EARLY_CHECKOUT_MINUTES = 8 * 60 + 30;
+
+const getElapsedMinutes = (checkIn?: string) => {
+  if (!checkIn) return null;
+  const start = new Date(checkIn).getTime();
+  const end = Date.now();
+  const diffMs = end - start;
+  if (diffMs <= 0) return 0;
+  return Math.floor(diffMs / 60000);
+};
+
 /* ─────────────── component ─────────────── */
 
 export default function MarkAttendanceButton({
@@ -90,6 +107,11 @@ export default function MarkAttendanceButton({
   const [checkoutDone, setCheckoutDone] = useState(false);
   const [todayRecord, setTodayRecord] = useState<TodayRecord | null>(null);
   const [liveWorkingTime, setLiveWorkingTime] = useState("—");
+
+  // Early checkout modal state
+  const [showEarlyCheckoutModal, setShowEarlyCheckoutModal] = useState(false);
+  const [earlyCheckoutStep, setEarlyCheckoutStep] = useState<"reason" | "confirm">("reason");
+  const [earlyCheckoutReason, setEarlyCheckoutReason] = useState("");
 
   // Use local date (not UTC) to avoid IST timezone off-by-one
   const localToday = (() => {
@@ -238,31 +260,7 @@ export default function MarkAttendanceButton({
     }
   };
 
-  /* checkout */
-  // const handleCheckout = async () => {
-  //   if (!token) return;
-  //   setLoading(true);
-  //   try {
-  //     const res = await fetch(`${API}/api/attendance/checkout`, {
-  //       method: "POST",
-  //       headers: { Authorization: `Bearer ${token}` },
-  //     });
-  //     const data = await res.json();
-  //     if (data.success) {
-  //       toast.success("👋 Checked out successfully!");
-  //       await fetchStatus();
-  //       onAttendanceChange?.();
-  //     } else {
-  //       toast.error(data.message || "Checkout failed.");
-  //     }
-  //   } catch {
-  //     toast.error("Something went wrong. Please try again.");
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  const handleCheckout = async () => {
+  const submitCheckout = async (reason?: string) => {
     if (!token) return;
 
     setLoading(true);
@@ -271,18 +269,15 @@ export default function MarkAttendanceButton({
       let latitude: number | undefined;
       let longitude: number | undefined;
 
-      // Ask for location
       if (navigator.geolocation) {
         try {
-          const position = await new Promise<GeolocationPosition>(
-            (resolve, reject) => {
-              navigator.geolocation.getCurrentPosition(resolve, reject, {
-                enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 0,
-              });
-            },
-          );
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 15000,
+              maximumAge: 0,
+            });
+          });
 
           latitude = position.coords.latitude;
           longitude = position.coords.longitude;
@@ -291,15 +286,11 @@ export default function MarkAttendanceButton({
 
           switch (geoError.code) {
             case 1:
-              toast.error(
-                "Location access denied. Please enable location to checkout.",
-              );
+              toast.error("Location access denied. Please enable location to checkout.");
               break;
 
             case 2:
-              toast.error(
-                "Unable to determine your location. Please try again.",
-              );
+              toast.error("Unable to determine your location. Please try again.");
               break;
 
             case 3:
@@ -327,6 +318,7 @@ export default function MarkAttendanceButton({
         body: JSON.stringify({
           latitude,
           longitude,
+          earlyCheckoutReason: reason?.trim() || "",
         }),
       });
 
@@ -338,7 +330,11 @@ export default function MarkAttendanceButton({
       }
 
       if (data.success) {
-        toast.success("👋 Checked out successfully!");
+        if (data.isEarlyCheckout) {
+          toast.success(data.message || "Early checkout submitted. Pending admin approval.");
+        } else {
+          toast.success(data.message || "👋 Checked out successfully!");
+        }
 
         await fetchStatus();
         onAttendanceChange?.();
@@ -347,11 +343,132 @@ export default function MarkAttendanceButton({
       }
     } catch (error) {
       console.error("Checkout Error:", error);
-
       toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCheckout = async () => {
+    if (!token || !todayRecord?.checkInTime) return;
+
+    const elapsedMinutes = getElapsedMinutes(todayRecord.checkInTime);
+    const isEarlyCheckout = elapsedMinutes !== null && elapsedMinutes < EARLY_CHECKOUT_MINUTES;
+
+    if (isEarlyCheckout) {
+      setEarlyCheckoutReason("");
+      setEarlyCheckoutStep("reason");
+      setShowEarlyCheckoutModal(true);
+      return;
+    }
+
+    await submitCheckout();
+  };
+
+  const handleEarlyCheckoutContinue = async () => {
+    if (!earlyCheckoutReason.trim()) {
+      toast.warning("Please fill a reason for early checkout.");
+      return;
+    }
+
+    setEarlyCheckoutStep("confirm");
+  };
+
+  const handleEarlyCheckoutConfirm = async () => {
+    setShowEarlyCheckoutModal(false);
+    setEarlyCheckoutStep("reason");
+    await submitCheckout(earlyCheckoutReason);
+  };
+
+  /* ─── early checkout modal ─── */
+  const renderEarlyCheckoutModal = () => {
+    if (!showEarlyCheckoutModal) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 px-4 backdrop-blur-sm">
+        <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+          <div className="bg-amber-50 px-4 py-3 border-b border-amber-100">
+            <div className="flex items-center gap-2 text-amber-700">
+              <AlertTriangle className="w-4 h-4" />
+              <p className="text-sm font-semibold">Early Checkout Request</p>
+            </div>
+          </div>
+
+          <div className="p-4 space-y-4">
+            {earlyCheckoutStep === "reason" ? (
+              <>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-gray-900">Please provide a reason</p>
+                  <p className="text-sm text-gray-500">
+                    Your working time is below 8h 30m today. This checkout request will be sent to your admin for approval.
+                  </p>
+                </div>
+
+                <label className="block text-xs font-semibold text-gray-600">
+                  Early checkout reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={earlyCheckoutReason}
+                  onChange={(e) => setEarlyCheckoutReason(e.target.value)}
+                  placeholder="e.g. urgent personal work, family emergency, office commitment..."
+                  rows={4}
+                  className="w-full border border-amber-200 rounded-xl px-3 py-2 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-amber-300"
+                />
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      setShowEarlyCheckoutModal(false);
+                      setEarlyCheckoutStep("reason");
+                    }}
+                    className="px-4 py-2 text-sm rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleEarlyCheckoutContinue}
+                    className="px-4 py-2 text-sm rounded-xl bg-amber-500 text-white hover:bg-amber-600"
+                  >
+                    Continue
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-gray-900">Confirm admin approval</p>
+                  <p className="text-sm text-gray-500">
+                    This early checkout request will be submitted for admin approval. Once confirmed, it cannot be edited from this screen.
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-sm text-amber-800">
+                  <p className="font-medium">Reason to be submitted:</p>
+                  <p className="mt-1">{earlyCheckoutReason}</p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      setEarlyCheckoutStep("reason");
+                    }}
+                    className="px-4 py-2 text-sm rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleEarlyCheckoutConfirm}
+                    className="px-4 py-2 text-sm rounded-xl bg-gray-900 text-white hover:bg-gray-700"
+                  >
+                    Confirm Checkout
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   /* ─── skeleton ─── */
@@ -383,6 +500,8 @@ export default function MarkAttendanceButton({
 
     return (
       <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+        {renderEarlyCheckoutModal()}
+
         {/* status accent bar */}
         <div
           className={`h-1 w-full ${
@@ -552,6 +671,7 @@ export default function MarkAttendanceButton({
   /* ─── mark form ─── */
   return (
     <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+      {renderEarlyCheckoutModal()}
       <div className="h-1 w-full bg-gradient-to-r from-blue-400 to-indigo-500" />
 
       <div className="p-5 space-y-4">

@@ -229,6 +229,8 @@ export default function EmployeeManagement() {
   }, [token, fetchEmployees, fetchRefData]);
 
 
+  // console.log("desData", designations);
+
 
   /* ── view details ── */
   const handleViewDetails = async (employeeId: string) => {

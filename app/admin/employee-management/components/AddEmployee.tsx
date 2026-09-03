@@ -56,6 +56,10 @@ export default function AddEmployee({ onSuccess, employees, designations, depart
 
     if (!isOpen) return null;
 
+    // console.log("designations", designations);
+    // console.log("departments", departments);
+    // console.log("employees", employees);
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
@@ -123,7 +127,7 @@ export default function AddEmployee({ onSuccess, employees, designations, depart
                                 <option value="">— Select —</option>
                                 {designations.map((d) => (
                                     <option key={d._id} value={d._id}>
-                                        {d.name}
+                                        {d.title}
                                     </option>
                                 ))}
                             </select>
@@ -162,11 +166,6 @@ export default function AddEmployee({ onSuccess, employees, designations, depart
                             >
                                 <option value="">— None —</option>
                                 {employees
-                                    .filter(
-                                        (e) =>
-                                            e.role === "MANAGER" ||
-                                            e.role === "ADMIN"
-                                    )
                                     .map((e) => (
                                         <option key={e._id} value={e._id}>
                                             {e.employeeDetails?.name ||
